@@ -7,7 +7,7 @@ const runtimeApiUrl =
     ? (window as Window & { ENV_API_URL?: string }).ENV_API_URL
     : undefined;
 const API_BASE_URL = (
-  runtimeApiUrl || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+  runtimeApiUrl || import.meta.env.VITE_API_URL || 'https://api.scrapifyauctions.com/api/v1'
 ).replace(/\/$/, '');
 
 export interface ApiResponse<T> {
