@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { FULFILMENTS, cr, fmtDate, EVENTS } from "@/lib/enterprise";
+import { cr, fmtDate } from "@/lib/enterprise";
+import { api } from "@/lib/api-client";
 import { Card, PageHead, Pill, Table } from "@/components/console/shell";
 
 export const Route = createFileRoute("/console/fulfilment")({
@@ -20,10 +21,18 @@ export const Route = createFileRoute("/console/fulfilment")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  loader: () => api.getAdminFulfilments({ per_page: "100" }),
   component: Fulfilment,
 });
 
-const STAGES = ["award_letter", "order", "scheduled", "in_progress", "delivered", "closed"] as const;
+const STAGES = [
+  "award_letter",
+  "order",
+  "scheduled",
+  "in_progress",
+  "delivered",
+  "closed",
+] as const;
 const STAGE_LABEL: Record<(typeof STAGES)[number], string> = {
   award_letter: "Award letter",
   order: "Order issued",
@@ -34,6 +43,18 @@ const STAGE_LABEL: Record<(typeof STAGES)[number], string> = {
 };
 
 function Fulfilment() {
+  const response = Route.useLoaderData() as any;
+  const fulfilments = (Array.isArray(response?.data) ? response.data : []).map((row: any) => ({
+    id: String(row.id ?? row.order_id ?? "ORDER"),
+    eventId: String(row.auction_id ?? "—"),
+    party: String(row.vendor_name ?? "—"),
+    stage: (row.status === "closed"
+      ? "closed"
+      : row.pickup_status
+        ? "scheduled"
+        : "order") as (typeof STAGES)[number],
+    value: Number(row.total_amount_inr ?? row.winning_amount_inr ?? 0),
+  }));
   return (
     <>
       <PageHead
@@ -42,15 +63,16 @@ function Fulfilment() {
       />
 
       <div className="space-y-4">
-        {FULFILMENTS.map((f) => {
-          const e = EVENTS.find((x) => x.id === f.eventId);
+        {fulfilments.map((f) => {
           const idx = STAGES.indexOf(f.stage);
           return (
             <Card
               key={f.id}
               title={`${f.id} · ${e?.title ?? f.eventId}`}
-              desc={`${f.party} · ${e?.category ?? ""} · value ${e ? cr(e.value) : "—"}`}
-              actions={<Pill tone={f.stage === "closed" ? "good" : "warn"}>{STAGE_LABEL[f.stage]}</Pill>}
+              desc={`${f.party} · value ${cr(f.value)}`}
+              actions={
+                <Pill tone={f.stage === "closed" ? "good" : "warn"}>{STAGE_LABEL[f.stage]}</Pill>
+              }
             >
               <ol className="flex flex-wrap gap-2">
                 {STAGES.map((s, i) => (
@@ -94,11 +116,29 @@ function Fulfilment() {
       <Card title="Documents & chain of custody" className="mt-4">
         <Table head={["Document", "Event", "Issued to", "Issued", "Status"]}>
           {[
-            ["Award letter AL-341", "FWD-2026-0341", "Meridian Metals Pvt Ltd", "Today", "Acknowledged"],
+            [
+              "Award letter AL-341",
+              "FWD-2026-0341",
+              "Meridian Metals Pvt Ltd",
+              "Today",
+              "Acknowledged",
+            ],
             ["Sale order SO-1187", "JAP-2026-0031", "Workforce First", "12 days ago", "Signed"],
             ["Work order WO-556", "RFP-2026-0077", "Aegis Facility Services", "Pending", "Draft"],
-            ["Gate pass GP-8892", "FWD-2026-0341", "Meridian Metals Pvt Ltd", "Blocked", "Awaiting payment"],
-            ["Closure certificate CC-204", "JAP-2026-0031", "Workforce First", "Pending", "Not due"],
+            [
+              "Gate pass GP-8892",
+              "FWD-2026-0341",
+              "Meridian Metals Pvt Ltd",
+              "Blocked",
+              "Awaiting payment",
+            ],
+            [
+              "Closure certificate CC-204",
+              "JAP-2026-0031",
+              "Workforce First",
+              "Pending",
+              "Not due",
+            ],
           ].map((r) => (
             <tr key={r[0]}>
               <td className="py-3 pr-4 font-semibold">{r[0]}</td>
@@ -106,7 +146,9 @@ function Fulfilment() {
               <td className="py-3 pr-4">{r[2]}</td>
               <td className="py-3 pr-4 text-xs text-muted-foreground">{r[3]}</td>
               <td className="py-3">
-                <Pill tone={r[4] === "Signed" || r[4] === "Acknowledged" ? "good" : "warn"}>{r[4]}</Pill>
+                <Pill tone={r[4] === "Signed" || r[4] === "Acknowledged" ? "good" : "warn"}>
+                  {r[4]}
+                </Pill>
               </td>
             </tr>
           ))}

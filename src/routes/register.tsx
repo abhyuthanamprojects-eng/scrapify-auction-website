@@ -70,8 +70,7 @@ function RegisterWizard() {
         email: data.user.email || initial.email,
         contactEmail: data.user.email || initial.contactEmail,
         contactName:
-          initial.contactName ||
-          ((data.user.user_metadata?.full_name as string | undefined) ?? ""),
+          initial.contactName || ((data.user.user_metadata?.full_name as string | undefined) ?? ""),
         otpVerified: true,
         googleLinked: true,
         completed: { ...initial.completed, 1: true, 2: true },
@@ -83,7 +82,6 @@ function RegisterWizard() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
 
   const goto = (n: WizardStep) => {
     // Only allow jumping back to a completed step, or the current step.
@@ -130,19 +128,18 @@ function RegisterWizard() {
                   {step > s.n ? <Check className="h-3.5 w-3.5" /> : s.n}
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div
-                    className={`h-0.5 flex-1 ${step > s.n ? "bg-emerald-500" : "bg-border"}`}
-                  />
+                  <div className={`h-0.5 flex-1 ${step > s.n ? "bg-emerald-500" : "bg-border"}`} />
                 )}
               </div>
             ))}
           </div>
-          <div className="mt-2 text-sm font-semibold text-foreground">
-            {STEPS[step - 1].label}
-          </div>
+          <div className="mt-2 text-sm font-semibold text-foreground">{STEPS[step - 1].label}</div>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]" suppressHydrationWarning>
+        <div
+          className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"
+          suppressHydrationWarning
+        >
           {/* Left: vertical stepper (desktop) */}
           <aside className="hidden lg:block">
             <div className="card-soft sticky top-6 p-6">
@@ -197,8 +194,8 @@ function RegisterWizard() {
               </ol>
 
               <div className="mt-6 rounded-xl bg-muted p-3 text-xs text-muted-foreground">
-                Your progress is saved automatically. You can close this tab and resume
-                where you left off.
+                Your progress is saved automatically. You can close this tab and resume where you
+                left off.
               </div>
             </div>
           </aside>
@@ -377,8 +374,8 @@ function Step1({
         Register with Google
       </button>
       <p className="text-center text-xs text-muted-foreground">
-        Google verifies your email and password for you — you'll continue with
-        Company Information &amp; KYC.
+        Google verifies your email and password for you — you'll continue with Company Information
+        &amp; KYC.
       </p>
     </FormShell>
   );
@@ -493,9 +490,7 @@ function Step2({
         show={showB}
         onToggle={() => setShowB((v) => !v)}
       />
-      {confirm.length > 0 && !matches && (
-        <ErrorLine>Passwords do not match.</ErrorLine>
-      )}
+      {confirm.length > 0 && !matches && <ErrorLine>Passwords do not match.</ErrorLine>}
       {error && <ErrorLine>{error}</ErrorLine>}
 
       <div className="flex items-center gap-3">
@@ -619,7 +614,8 @@ function Step3({
         material_interest: materials,
         terms_accepted: terms,
       });
-      const vendorCode = vendorResponse.data?.code ?? vendorResponse.code ?? vendorResponse.id ?? state.vendorCode;
+      const vendorCode =
+        vendorResponse.data?.code ?? vendorResponse.code ?? vendorResponse.id ?? state.vendorCode;
       if (!vendorCode) throw new Error("Vendor code missing from registration response.");
       await Promise.all([
         api.uploadVendorDocument(vendorCode, "license", "License", licenseFile!),
@@ -660,16 +656,8 @@ function Step3({
         />
         <Field label="GST Number" value={f.gstNumber} onChange={set("gstNumber")} />
         <Field label="PAN Number" value={f.panNumber} onChange={set("panNumber")} />
-        <Field
-          label="License Number"
-          value={f.licenseNumber}
-          onChange={set("licenseNumber")}
-        />
-        <Field
-          label="Contact Person Name"
-          value={f.contactName}
-          onChange={set("contactName")}
-        />
+        <Field label="License Number" value={f.licenseNumber} onChange={set("licenseNumber")} />
+        <Field label="Contact Person Name" value={f.contactName} onChange={set("contactName")} />
         <Field
           label="Mobile Number (business)"
           value={f.contactMobile}
@@ -692,8 +680,7 @@ function Step3({
           Material interest <span className="text-[color:var(--auction)]">*</span>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Pick every category you want auction alerts for. Same six categories the
-          auctioneer uses.
+          Pick every category you want auction alerts for. Same six categories the auctioneer uses.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {MATERIALS.map((m) => {
@@ -748,19 +735,19 @@ function Step3({
         </div>
         <div className="max-h-40 overflow-y-auto p-4 text-xs leading-relaxed text-muted-foreground">
           <p>
-            By registering as a bidder on Scrapify Auction, you agree to submit accurate
-            KYC information, lock an EMD before bidding, and comply with post-auction
-            lifting timelines. Winning bids create a binding contract with the seller.
+            By registering as a bidder on Scrapify Auction, you agree to submit accurate KYC
+            information, lock an EMD before bidding, and comply with post-auction lifting timelines.
+            Winning bids create a binding contract with the seller.
           </p>
           <p className="mt-2">
-            EMD is refundable if you do not win. Non-lifting after a winning bid may
-            result in EMD forfeiture and account suspension. All disputes are subject to
-            the jurisdiction of the courts of Mumbai, India.
+            EMD is refundable if you do not win. Non-lifting after a winning bid may result in EMD
+            forfeiture and account suspension. All disputes are subject to the jurisdiction of the
+            courts of Mumbai, India.
           </p>
           <p className="mt-2">
-            Scrapify may share your registration details with sellers and statutory
-            authorities as required. You confirm you are authorised to represent the
-            named entity, and that all uploaded documents are genuine.
+            Scrapify may share your registration details with sellers and statutory authorities as
+            required. You confirm you are authorised to represent the named entity, and that all
+            uploaded documents are genuine.
           </p>
         </div>
         <label className="flex items-center gap-2 border-t border-border px-4 py-3 text-sm">
@@ -882,9 +869,7 @@ function Step4({
             ? "pending"
             : "review",
   );
-  const [method, setMethod] = useState<RegistrationState["paymentMethod"]>(
-    state.paymentMethod,
-  );
+  const [method, setMethod] = useState<RegistrationState["paymentMethod"]>(state.paymentMethod);
   const [paymentReference, setPaymentReference] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -920,7 +905,8 @@ function Step4({
   }, [phase, update]);
 
   useEffect(() => {
-    api.getPlatformConfig()
+    api
+      .getPlatformConfig()
       .then((config) => setRegistrationFee(config.vendor_registration_fee))
       .catch(() => setRegistrationFee(null));
   }, []);
@@ -1022,8 +1008,11 @@ function Step4({
         </div>
 
         <div className="rounded-xl bg-muted p-4 text-sm text-foreground">
-          Amount payable: <b className="font-display">{registrationFee == null ? "Loading…" : `₹${registrationFee.toLocaleString("en-IN")}`}</b> (one-time,
-          non-refundable KYC processing fee).
+          Amount payable:{" "}
+          <b className="font-display">
+            {registrationFee == null ? "Loading…" : `₹${registrationFee.toLocaleString("en-IN")}`}
+          </b>{" "}
+          (one-time, non-refundable KYC processing fee).
         </div>
 
         <Field
@@ -1057,7 +1046,9 @@ function Step4({
                 });
                 setPhase("pending");
               } catch (cause) {
-                setError(cause instanceof Error ? cause.message : "Payment could not be submitted.");
+                setError(
+                  cause instanceof Error ? cause.message : "Payment could not be submitted.",
+                );
               } finally {
                 setBusy(false);
               }
@@ -1078,18 +1069,14 @@ function Step4({
         subtitle="Under review, usually within 24 hours. You'll be able to bid once an admin approves your KYC."
       >
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
-          <div className="font-display text-base font-bold text-amber-900">
-            Status: Pending
-          </div>
+          <div className="font-display text-base font-bold text-amber-900">Status: Pending</div>
           <p className="mt-1 text-amber-900/80">
-            Bidding is <b>locked</b> until an admin approves your account. This banner
-            will stay on your profile until approval.
+            Bidding is <b>locked</b> until an admin approves your account. This banner will stay on
+            your profile until approval.
           </p>
         </div>
 
-        <SecondaryButton onClick={() => navigate({ to: "/" })}>
-          Back to marketplace
-        </SecondaryButton>
+        <SecondaryButton onClick={() => navigate({ to: "/" })}>Back to marketplace</SecondaryButton>
       </FormShell>
     );
   }
@@ -1101,9 +1088,7 @@ function Step4({
         subtitle="The auctioneer reviewed your submission and returned it with a reason."
       >
         <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
-          <div className="font-display text-base font-bold text-destructive">
-            Status: Rejected
-          </div>
+          <div className="font-display text-base font-bold text-destructive">Status: Rejected</div>
           <p className="mt-1 text-sm text-destructive/90">
             Reason from admin: “{state.statusReason || "Not specified"}”
           </p>
@@ -1136,9 +1121,7 @@ function Step4({
         subtitle="Bidding is blocked while your account is suspended."
       >
         <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
-          <div className="font-display text-base font-bold text-destructive">
-            Status: Suspended
-          </div>
+          <div className="font-display text-base font-bold text-destructive">Status: Suspended</div>
           <p className="mt-1 text-sm text-destructive/90">
             Reason from admin: “{state.statusReason || "Not specified"}”
           </p>
@@ -1146,9 +1129,7 @@ function Step4({
             Contact support at <b>support@scrapify.in</b> or call 1800-000-000 to appeal.
           </p>
         </div>
-        <SecondaryButton onClick={() => navigate({ to: "/" })}>
-          Back to marketplace
-        </SecondaryButton>
+        <SecondaryButton onClick={() => navigate({ to: "/" })}>Back to marketplace</SecondaryButton>
       </FormShell>
     );
   }
@@ -1164,26 +1145,9 @@ function Step4({
           <Check className="h-5 w-5" /> KYC approved
         </div>
         <p className="mt-1 text-sm text-emerald-800/80">
-          KYC fields are now read-only — use “request update” from your dashboard to
-          change them, which sends you back to the admin queue.
+          KYC fields are now read-only — use “request update” from your dashboard to change them,
+          which sends you back to the admin queue.
         </p>
-      </div>
-      <div className="rounded-xl border border-dashed border-border p-4 text-xs text-muted-foreground">
-        <div className="font-semibold uppercase tracking-wider">Demo control</div>
-        <button
-          type="button"
-          onClick={() => {
-            update({
-              approved: false,
-              vendorStatus: "suspended",
-              statusReason: "Non-lifting of a previously won lot (AUC-2026-0009).",
-            });
-            setPhase("suspended");
-          }}
-          className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold text-foreground hover:border-destructive"
-        >
-          Simulate suspension
-        </button>
       </div>
       <div className="flex items-center gap-3">
         <SecondaryButton
@@ -1192,7 +1156,7 @@ function Step4({
             navigate({ to: "/" });
           }}
         >
-          Reset demo state
+          Start a new registration
         </SecondaryButton>
         <PrimaryButton onClick={() => navigate({ to: "/" })}>
           Start bidding <ChevronRight className="h-4 w-4" />
@@ -1306,10 +1270,19 @@ function ErrorLine({ children }: { children: React.ReactNode }) {
 function GoogleMark() {
   return (
     <svg className="h-4 w-4" viewBox="0 0 48 48" aria-hidden="true">
-      <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.6 30.2.5 24 .5 14.6.5 6.5 5.9 2.6 13.8l7.8 6.1C12.3 13.7 17.6 9.5 24 9.5z" />
-      <path fill="#4285F4" d="M46.5 24.5c0-1.6-.15-3.2-.45-4.7H24v9.1h12.7c-.55 2.9-2.2 5.3-4.6 7l7.6 5.9c4.4-4.1 6.8-10.2 6.8-17.3z" />
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.6 30.2.5 24 .5 14.6.5 6.5 5.9 2.6 13.8l7.8 6.1C12.3 13.7 17.6 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.5 24.5c0-1.6-.15-3.2-.45-4.7H24v9.1h12.7c-.55 2.9-2.2 5.3-4.6 7l7.6 5.9c4.4-4.1 6.8-10.2 6.8-17.3z"
+      />
       <path fill="#FBBC05" d="M10.4 28.1a14.6 14.6 0 010-9.3l-7.8-6.1a24 24 0 000 21.5l7.8-6.1z" />
-      <path fill="#34A853" d="M24 47.5c6.2 0 11.5-2 15.3-5.6l-7.6-5.9c-2.1 1.4-4.8 2.3-7.7 2.3-6.4 0-11.7-4.2-13.6-10.2l-7.8 6.1C6.5 42.1 14.6 47.5 24 47.5z" />
+      <path
+        fill="#34A853"
+        d="M24 47.5c6.2 0 11.5-2 15.3-5.6l-7.6-5.9c-2.1 1.4-4.8 2.3-7.7 2.3-6.4 0-11.7-4.2-13.6-10.2l-7.8 6.1C6.5 42.1 14.6 47.5 24 47.5z"
+      />
     </svg>
   );
 }

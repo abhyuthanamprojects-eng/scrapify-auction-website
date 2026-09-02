@@ -1,8 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { DISPUTES, EVENTS, fmtDate, type Dispute } from "@/lib/enterprise";
+import { fmtDate, type Dispute } from "@/lib/enterprise";
+import { api } from "@/lib/api-client";
 import { Card, Kpi, PageHead, Pill } from "@/components/console/shell";
-import { AlertCircle, CheckCircle2, MessageSquare, Plus, Scale, ShieldAlert, UserCheck, X } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  MessageSquare,
+  Plus,
+  Scale,
+  ShieldAlert,
+  UserCheck,
+  X,
+} from "lucide-react";
 
 export const Route = createFileRoute("/console/disputes")({
   head: () => ({
@@ -20,12 +30,25 @@ export const Route = createFileRoute("/console/disputes")({
       },
     ],
   }),
+  loader: () => api.getDisputes({ per_page: "100" }),
   component: DisputesPage,
 });
 
 function DisputesPage() {
   const [filter, setFilter] = useState<"all" | "open" | "under_review" | "resolved">("all");
-  const [disputesList, setDisputesList] = useState<Dispute[]>(DISPUTES);
+  const response = Route.useLoaderData() as any;
+  const [disputesList, setDisputesList] = useState<Dispute[]>(() =>
+    (Array.isArray(response?.data) ? response.data : []).map((d: any) => ({
+      id: String(d.code ?? d.id),
+      eventId: String(d.auction_code ?? d.auction_id ?? "—"),
+      party: String(d.vendor_name ?? d.party ?? "—"),
+      type: d.type ?? "process",
+      severity: d.severity ?? "medium",
+      status: d.status ?? "open",
+      opened: Date.parse(d.created_at ?? "") || Date.now(),
+      summary: String(d.summary ?? d.description ?? ""),
+    })),
+  );
   const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null);
   const [actionType, setActionType] = useState<"evidence" | "committee" | "decision" | null>(null);
   const [modalText, setModalText] = useState("");
@@ -41,7 +64,15 @@ function DisputesPage() {
     if (!selectedDispute || !actionType) return;
     if (actionType === "decision") {
       setDisputesList((prev) =>
-        prev.map((d) => (d.id === selectedDispute.id ? { ...d, status: "resolved", summary: `${d.summary} [Resolved: ${modalText || "Arbitration completed"}]` } : d)),
+        prev.map((d) =>
+          d.id === selectedDispute.id
+            ? {
+                ...d,
+                status: "resolved",
+                summary: `${d.summary} [Resolved: ${modalText || "Arbitration completed"}]`,
+              }
+            : d,
+        ),
       );
     } else if (actionType === "committee") {
       setDisputesList((prev) =>
@@ -87,9 +118,22 @@ function DisputesPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Kpi label="Open Disputes" value={String(disputesList.filter((d) => d.status === "open").length)} hint="SLA 3 working days" />
-        <Kpi label="Under Arbitration" value={String(disputesList.filter((d) => d.status === "under_review").length)} hint="Committee assigned" />
-        <Kpi label="Resolved Cases" value={String(disputesList.filter((d) => d.status === "resolved").length)} delta="100% On-Time" hint="Outcome recorded" />
+        <Kpi
+          label="Open Disputes"
+          value={String(disputesList.filter((d) => d.status === "open").length)}
+          hint="SLA 3 working days"
+        />
+        <Kpi
+          label="Under Arbitration"
+          value={String(disputesList.filter((d) => d.status === "under_review").length)}
+          hint="Committee assigned"
+        />
+        <Kpi
+          label="Resolved Cases"
+          value={String(disputesList.filter((d) => d.status === "resolved").length)}
+          delta="100% On-Time"
+          hint="Outcome recorded"
+        />
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -98,7 +142,9 @@ function DisputesPage() {
             key={f}
             onClick={() => setFilter(f)}
             className={`rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider capitalize transition-colors ${
-              filter === f ? "bg-[color:var(--navy)] text-white shadow-sm" : "border border-border text-muted-foreground hover:bg-muted"
+              filter === f
+                ? "bg-[color:var(--navy)] text-white shadow-sm"
+                : "border border-border text-muted-foreground hover:bg-muted"
             }`}
           >
             {f.replace("_", " ")}
@@ -108,7 +154,7 @@ function DisputesPage() {
 
       <div className="mt-4 space-y-4">
         {rows.map((d) => {
-          const e = EVENTS.find((x) => x.id === d.eventId);
+          const e = null;
           return (
             <Card
               key={d.id}
@@ -116,10 +162,16 @@ function DisputesPage() {
               desc={`${d.party} · Event: ${e?.title ?? d.eventId} · Opened on ${fmtDate(d.opened)}`}
               actions={
                 <div className="flex gap-2">
-                  <Pill tone={d.severity === "high" ? "bad" : d.severity === "medium" ? "warn" : "muted"}>
+                  <Pill
+                    tone={
+                      d.severity === "high" ? "bad" : d.severity === "medium" ? "warn" : "muted"
+                    }
+                  >
                     {d.severity.toUpperCase()} SEVERITY
                   </Pill>
-                  <Pill tone={d.status === "resolved" ? "good" : d.status === "open" ? "bad" : "warn"}>
+                  <Pill
+                    tone={d.status === "resolved" ? "good" : d.status === "open" ? "bad" : "warn"}
+                  >
                     {d.status.replace("_", " ").toUpperCase()}
                   </Pill>
                 </div>
@@ -171,10 +223,14 @@ function DisputesPage() {
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <h3 className="font-display text-base font-bold">
                 {actionType === "evidence" && `Request Additional Evidence — ${selectedDispute.id}`}
-                {actionType === "committee" && `Assign Arbitration Committee — ${selectedDispute.id}`}
+                {actionType === "committee" &&
+                  `Assign Arbitration Committee — ${selectedDispute.id}`}
                 {actionType === "decision" && `Record Formal Resolution — ${selectedDispute.id}`}
               </h3>
-              <button onClick={() => setActionType(null)} className="p-1 text-muted-foreground hover:bg-muted rounded">
+              <button
+                onClick={() => setActionType(null)}
+                className="p-1 text-muted-foreground hover:bg-muted rounded"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -217,16 +273,25 @@ function DisputesPage() {
       {/* Log Claim Modal */}
       {newDisputeOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <form onSubmit={handleCreateDispute} className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95">
+          <form
+            onSubmit={handleCreateDispute}
+            className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <h3 className="font-display text-base font-bold">Log Commercial Claim / Dispute</h3>
-              <button type="button" onClick={() => setNewDisputeOpen(false)} className="p-1 text-muted-foreground hover:bg-muted rounded">
+              <button
+                type="button"
+                onClick={() => setNewDisputeOpen(false)}
+                className="p-1 text-muted-foreground hover:bg-muted rounded"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="my-4 text-xs space-y-3">
               <div>
-                <label className="font-semibold text-muted-foreground">Affected Vendor / Party</label>
+                <label className="font-semibold text-muted-foreground">
+                  Affected Vendor / Party
+                </label>
                 <input
                   value={newParty}
                   onChange={(e) => setNewParty(e.target.value)}
@@ -262,7 +327,9 @@ function DisputesPage() {
                 </div>
               </div>
               <div>
-                <label className="font-semibold text-muted-foreground">Claim Summary & Evidence Context</label>
+                <label className="font-semibold text-muted-foreground">
+                  Claim Summary & Evidence Context
+                </label>
                 <textarea
                   value={newSummary}
                   onChange={(e) => setNewSummary(e.target.value)}

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { EVENTS, approvalTriggers, cr, fmtDate, FORMAT_LABEL } from "@/lib/enterprise";
+import { approvalTriggers, cr, fmtDate, FORMAT_LABEL } from "@/lib/enterprise";
+import { loadEvents } from "@/lib/enterprise-api";
 import { Card, PageHead, Pill, Table } from "@/components/console/shell";
 
 export const Route = createFileRoute("/console/approvals")({
@@ -15,17 +16,21 @@ export const Route = createFileRoute("/console/approvals")({
       { property: "og:title", content: "Approval Queue" },
       {
         property: "og:description",
-        content: "L1/L2/L3 approvers act on award recommendations with full context and audit capture.",
+        content:
+          "L1/L2/L3 approvers act on award recommendations with full context and audit capture.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  loader: () => loadEvents({ status: "approval" }),
   component: Approvals,
 });
 
 function Approvals() {
-  const queue = EVENTS.filter((e) => e.approvals.some((a) => a.status === "pending"));
+  const queue = Route.useLoaderData().filter(
+    (e) => e.approvals.some((a) => a.status === "pending") || e.state === "approval",
+  );
   const [decided, setDecided] = useState<Record<string, "approved" | "rejected" | "returned">>({});
   const [note, setNote] = useState<Record<string, string>>({});
 
@@ -45,7 +50,11 @@ function Approvals() {
               key={e.id}
               title={`${e.id} · ${e.title}`}
               desc={`${FORMAT_LABEL[e.format]} · ${e.category} · owner ${e.owner}`}
-              actions={<Pill tone={state === "approved" ? "good" : state === "rejected" ? "bad" : "warn"}>{state ?? "Pending decision"}</Pill>}
+              actions={
+                <Pill tone={state === "approved" ? "good" : state === "rejected" ? "bad" : "warn"}>
+                  {state ?? "Pending decision"}
+                </Pill>
+              }
             >
               <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
                 <div>
@@ -54,7 +63,10 @@ function Approvals() {
                       [e.direction === "forward" ? "Reserve" : "Target", cr(e.baseline)],
                       ["Recommended", e.value ? cr(e.value) : "—"],
                       ["Variance", `${variance.toFixed(1)}%`],
-                      ["Participants", `${e.participants.filter((p) => p.accepted).length} accepted`],
+                      [
+                        "Participants",
+                        `${e.participants.filter((p) => p.accepted).length} accepted`,
+                      ],
                     ].map(([k, v]) => (
                       <div key={k}>
                         <dt className="text-xs uppercase text-muted-foreground">{k}</dt>
@@ -125,7 +137,13 @@ function Approvals() {
                         </div>
                         <Pill
                           tone={
-                            a.status === "approved" ? "good" : a.status === "rejected" ? "bad" : a.status === "pending" ? "warn" : "muted"
+                            a.status === "approved"
+                              ? "good"
+                              : a.status === "rejected"
+                                ? "bad"
+                                : a.status === "pending"
+                                  ? "warn"
+                                  : "muted"
                           }
                         >
                           {a.status.replace("_", " ")}
@@ -140,21 +158,46 @@ function Approvals() {
         })}
       </div>
 
-      <Card title="Approval matrix" desc="Thresholds that route a recommendation to each level" className="mt-4">
+      <Card
+        title="Approval matrix"
+        desc="Thresholds that route a recommendation to each level"
+        className="mt-4"
+      >
         <Table head={["Trigger", "L1", "L2", "L3", "SLA"]}>
           {[
             ["Value up to ₹50 L", "Category Manager", "—", "—", "24 h"],
             ["₹50 L – ₹5 Cr", "Category Manager", "Finance Controller", "—", "24 h"],
             ["Above ₹5 Cr", "Category Manager", "Finance Controller", "CPO", "48 h"],
-            ["Award below reserve / above target", "Category Manager", "Finance Controller", "CPO", "24 h"],
-            ["Single or fewer than 3 bidders", "Category Manager", "Finance Controller", "—", "24 h"],
+            [
+              "Award below reserve / above target",
+              "Category Manager",
+              "Finance Controller",
+              "CPO",
+              "24 h",
+            ],
+            [
+              "Single or fewer than 3 bidders",
+              "Category Manager",
+              "Finance Controller",
+              "—",
+              "24 h",
+            ],
             ["Non-best-offer award", "Category Manager", "Finance Controller", "CPO", "48 h"],
             ["High-risk vendor", "Compliance", "Finance Controller", "CPO", "48 h"],
-            ["Cancellation after bids received", "Category Manager", "Finance Controller", "CPO", "24 h"],
+            [
+              "Cancellation after bids received",
+              "Category Manager",
+              "Finance Controller",
+              "CPO",
+              "24 h",
+            ],
           ].map((r) => (
             <tr key={r[0]}>
               {r.map((c, i) => (
-                <td key={i} className={`py-3 pr-4 ${i === 0 ? "font-semibold" : "text-muted-foreground"}`}>
+                <td
+                  key={i}
+                  className={`py-3 pr-4 ${i === 0 ? "font-semibold" : "text-muted-foreground"}`}
+                >
                   {c}
                 </td>
               ))}

@@ -71,9 +71,7 @@ export const Route = createFileRoute("/lots/$id")({
       <SiteHeader />
       <div className="mx-auto max-w-2xl px-4 py-24 text-center">
         <h1 className="font-display text-3xl font-bold">Lot not found</h1>
-        <p className="mt-2 text-muted-foreground">
-          This auction may have ended or been withdrawn.
-        </p>
+        <p className="mt-2 text-muted-foreground">This auction may have ended or been withdrawn.</p>
         <Link
           to="/"
           className="mt-6 inline-flex items-center gap-2 rounded-full bg-[color:var(--auction)] px-5 py-2.5 text-sm font-semibold text-white"
@@ -86,7 +84,9 @@ export const Route = createFileRoute("/lots/$id")({
   errorComponent: ({ error, reset }) => (
     <div className="min-h-screen bg-background p-12 text-center">
       <p className="text-destructive">{error.message}</p>
-      <button onClick={reset} className="mt-4 underline">Retry</button>
+      <button onClick={reset} className="mt-4 underline">
+        Retry
+      </button>
     </div>
   ),
 });
@@ -180,7 +180,11 @@ function LotDetail() {
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             <Fact icon={CalendarClock} label="Starts" value={fmt(startsAt(lot))} />
             <Fact icon={CalendarClock} label="Ends" value={fmt(lot.endsAt)} />
-            <Fact icon={Layers} label="Auction type" value={`${lotType(lot)} · ${isReverse ? "Reverse" : "Forward"}`} />
+            <Fact
+              icon={Layers}
+              label="Auction type"
+              value={`${lotType(lot)} · ${isReverse ? "Reverse" : "Forward"}`}
+            />
           </div>
 
           {/* Sub-lots */}
@@ -262,9 +266,7 @@ function LotDetail() {
           <div className="mt-8 card-soft p-6">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-lg font-bold">Bid history</h2>
-              <span className="text-xs text-muted-foreground">
-                Bidder identities masked
-              </span>
+              <span className="text-xs text-muted-foreground">Bidder identities masked</span>
             </div>
             <ul className="mt-4 divide-y divide-border">
               {lot.history.length === 0 && (
@@ -273,10 +275,7 @@ function LotDetail() {
                 </li>
               )}
               {lot.history.map((h: Lot["history"][number], i: number) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between py-3 text-sm"
-                >
+                <li key={i} className="flex items-center justify-between py-3 text-sm">
                   <span className="font-medium text-foreground">{h.bidder}</span>
                   <span className="font-display font-bold text-[color:var(--navy)]">
                     {formatINR(h.amount)}
@@ -316,7 +315,9 @@ function LotDetail() {
               </label>
               <div className="mt-2 flex items-stretch overflow-hidden rounded-xl border border-border">
                 <button
-                  onClick={() => setAmount((a: number) => Math.max(lot.increment, a - lot.increment))}
+                  onClick={() =>
+                    setAmount((a: number) => Math.max(lot.increment, a - lot.increment))
+                  }
                   className="px-4 text-lg font-bold text-muted-foreground hover:bg-muted"
                 >
                   −
@@ -391,8 +392,8 @@ function LotDetail() {
                   </span>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  <b className="text-foreground">{formatINR(lot.emd)}</b> ({emdPercent(lot)}%
-                  of base) refundable deposit. Auto-released if you do not win.
+                  <b className="text-foreground">{formatINR(lot.emd)}</b> ({emdPercent(lot)}% of
+                  base) refundable deposit. Auto-released if you do not win.
                 </p>
 
                 {approved && emdStatus === "not_paid" && !part && (
@@ -427,7 +428,7 @@ function LotDetail() {
                     onClick={() => confirmEmd(lot)}
                     className="mt-3 w-full rounded-full border border-border py-2 text-xs font-semibold hover:border-emerald-600"
                   >
-                    Simulate finance confirmation
+                    Refresh payment status
                   </button>
                 )}
               </div>
@@ -464,8 +465,8 @@ function LotDetail() {
           <div className="mt-4 card-soft flex items-start gap-3 p-4 text-xs text-muted-foreground">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--accent-blue)]" />
             <span>
-              Bidding is unlocked after KYC approval. Public view shows masked history —
-              register to see full activity and place bids.
+              Bidding is unlocked after KYC approval. Public view shows masked history — register to
+              see full activity and place bids.
             </span>
           </div>
         </aside>

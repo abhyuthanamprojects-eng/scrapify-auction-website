@@ -1,13 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import {
-  EVENTS,
-  FORMAT_LABEL,
-  cr,
-  fmtDate,
-  timeLeft,
-  type AuctionEvent,
-} from "@/lib/enterprise";
+import { FORMAT_LABEL, cr, fmtDate, timeLeft, type AuctionEvent } from "@/lib/enterprise";
+import { loadEvents } from "@/lib/enterprise-api";
 import { Card, Kpi, PageHead, Pill, StateBadge } from "@/components/console/shell";
 import { useTick } from "@/hooks/use-tick";
 
@@ -23,12 +17,14 @@ export const Route = createFileRoute("/portal/")({
       { property: "og:title", content: "Bidder portal — my invitations" },
       {
         property: "og:description",
-        content: "Accept invitations, clear the EMD and terms gates, then enter the right room for each auction format.",
+        content:
+          "Accept invitations, clear the EMD and terms gates, then enter the right room for each auction format.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  loader: () => loadEvents(),
   component: PortalHome,
 });
 
@@ -52,10 +48,12 @@ function PortalHome() {
   useTick(1000);
   const [tab, setTab] = useState<"all" | "action" | "live" | "closed">("all");
 
-  const mine = EVENTS.filter((e) => e.state !== "draft" && myPart(e));
+  const events = Route.useLoaderData();
+  const mine = events.filter((e) => e.state !== "draft" && myPart(e));
   const rows = mine.filter((e) => {
     if (tab === "live") return e.state === "live" || e.state === "paused";
-    if (tab === "closed") return ["closed", "evaluation", "approval", "awarded", "cancelled"].includes(e.state);
+    if (tab === "closed")
+      return ["closed", "evaluation", "approval", "awarded", "cancelled"].includes(e.state);
     if (tab === "action") {
       const p = myPart(e);
       return !p.termsAccepted || (e.emdRequired && p.emd !== "confirmed") || !p.accepted;
@@ -84,7 +82,9 @@ function PortalHome() {
         <Kpi label="EMD / security held" value={cr(emdHeld)} hint="Released after award decision" />
         <Kpi
           label="Awaiting outcome"
-          value={String(mine.filter((e) => ["closed", "evaluation", "approval"].includes(e.state)).length)}
+          value={String(
+            mine.filter((e) => ["closed", "evaluation", "approval"].includes(e.state)).length,
+          )}
           hint="Evaluation in progress"
         />
       </div>
@@ -95,7 +95,9 @@ function PortalHome() {
             key={t}
             onClick={() => setTab(t)}
             className={`rounded-full px-3.5 py-1.5 text-sm font-medium capitalize ${
-              tab === t ? "bg-[color:var(--navy)] text-white" : "border border-border hover:bg-muted"
+              tab === t
+                ? "bg-[color:var(--navy)] text-white"
+                : "border border-border hover:bg-muted"
             }`}
           >
             {t === "action" ? "Needs action" : t}
@@ -142,10 +144,19 @@ function PortalHome() {
               }
             >
               <div className="grid gap-4 sm:grid-cols-4">
-                <Detail label={e.direction === "forward" ? "Current best bid" : "Current best offer"} value={e.value ? cr(e.value) : "Sealed / not opened"} />
-                <Detail label="My last submission" value={best ? `${cr(best.amount)} · rank ${best.rank}` : "None yet"} />
+                <Detail
+                  label={e.direction === "forward" ? "Current best bid" : "Current best offer"}
+                  value={e.value ? cr(e.value) : "Sealed / not opened"}
+                />
+                <Detail
+                  label="My last submission"
+                  value={best ? `${cr(best.amount)} · rank ${best.rank}` : "None yet"}
+                />
                 <Detail label="Closes" value={`${fmtDate(e.endAt)} · ${timeLeft(e.endAt)}`} />
-                <Detail label="Lots / line items" value={`${e.lots.length} · ${e.rankVisibility.replace("_", " ")}`} />
+                <Detail
+                  label="Lots / line items"
+                  value={`${e.lots.length} · ${e.rankVisibility.replace("_", " ")}`}
+                />
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">

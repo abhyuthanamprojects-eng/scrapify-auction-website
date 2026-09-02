@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { EVENTS, fmtDate } from "@/lib/enterprise";
+import { fmtDate } from "@/lib/enterprise";
+import { api } from "@/lib/api-client";
 import { Card, PageHead, Pill } from "@/components/console/shell";
 import { Download, FileCheck2, Hash, ShieldCheck, Search, Filter } from "lucide-react";
 
@@ -16,10 +17,12 @@ export const Route = createFileRoute("/console/audit")({
       { property: "og:title", content: "Platform Audit Trail | Scrapify Auctions" },
       {
         property: "og:description",
-        content: "Who did what, when, with what justification — exportable for internal and statutory audit.",
+        content:
+          "Who did what, when, with what justification — exportable for internal and statutory audit.",
       },
     ],
   }),
+  loader: () => api.getAuditLogs({ per_page: "200" }),
   component: AuditPage,
 });
 
@@ -27,27 +30,40 @@ function AuditPage() {
   const [q, setQ] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
 
-  const rawEntries = EVENTS.flatMap((e) =>
-    e.audit.map((a, idx) => ({
-      ...a,
-      eventId: e.id,
-      title: e.title,
-      hash: `0x${(100000000000 + idx * 78291 + a.at).toString(16).slice(0, 16)}...`,
-      category: a.action.toLowerCase().includes("bid")
-        ? "Bidding"
-        : a.action.toLowerCase().includes("approval")
-          ? "Approval"
-          : a.action.toLowerCase().includes("publish") || a.action.toLowerCase().includes("live")
-            ? "Lifecycle"
-            : "System",
-    })),
-  );
+  const auditResponse = Route.useLoaderData() as any;
+  const auditRows = Array.isArray(auditResponse?.data) ? auditResponse.data : [];
+  const rawEntries = auditRows.map((a: any, idx: number) => ({
+    action: String(a.action ?? a.event ?? "System action"),
+    actor: String(a.actor ?? a.user?.name ?? "System"),
+    at: Date.parse(a.at ?? a.created_at ?? "") || 0,
+    eventId: String(a.event_id ?? a.auction_code ?? "—"),
+    title: String(a.title ?? a.description ?? ""),
+    hash: String(a.hash ?? `audit-${a.id ?? idx}`),
+    category: String(a.action ?? a.event ?? "")
+      .toLowerCase()
+      .includes("bid")
+      ? "Bidding"
+      : String(a.action ?? "")
+            .toLowerCase()
+            .includes("approval")
+        ? "Approval"
+        : String(a.action ?? "")
+              .toLowerCase()
+              .includes("publish") ||
+            String(a.action ?? "")
+              .toLowerCase()
+              .includes("live")
+          ? "Lifecycle"
+          : "System",
+  }));
 
   const entries = rawEntries
     .filter((a) => {
-      const matchesType = filterType === "all" || a.category.toLowerCase() === filterType.toLowerCase();
+      const matchesType =
+        filterType === "all" || a.category.toLowerCase() === filterType.toLowerCase();
       const matchesSearch =
-        q === "" || `${a.action} ${a.actor} ${a.eventId} ${a.title}`.toLowerCase().includes(q.toLowerCase());
+        q === "" ||
+        `${a.action} ${a.actor} ${a.eventId} ${a.title}`.toLowerCase().includes(q.toLowerCase());
       return matchesType && matchesSearch;
     })
     .sort((a, b) => b.at - a.at);
@@ -75,7 +91,9 @@ function AuditPage() {
               key={t}
               onClick={() => setFilterType(t)}
               className={`rounded-full px-3.5 py-1 text-xs font-semibold uppercase tracking-wider transition-colors ${
-                filterType === t ? "bg-[color:var(--navy)] text-white" : "border border-border text-muted-foreground hover:bg-muted"
+                filterType === t
+                  ? "bg-[color:var(--navy)] text-white"
+                  : "border border-border text-muted-foreground hover:bg-muted"
               }`}
             >
               {t === "all" ? "All Logs" : t}
@@ -94,10 +112,16 @@ function AuditPage() {
         </div>
       </div>
 
-      <Card title={`Cryptographically Verified Ledger (${entries.length} Entries)`} desc="Hash-chained blocks synced across redundant secure nodes">
+      <Card
+        title={`Cryptographically Verified Ledger (${entries.length} Entries)`}
+        desc="Hash-chained blocks synced across redundant secure nodes"
+      >
         <ol className="space-y-4">
           {entries.map((a, i) => (
-            <li key={i} className="flex items-start justify-between rounded-xl border border-border bg-card p-3.5 hover:bg-muted/20 transition-colors">
+            <li
+              key={i}
+              className="flex items-start justify-between rounded-xl border border-border bg-card p-3.5 hover:bg-muted/20 transition-colors"
+            >
               <div className="flex items-start gap-3">
                 <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[color:var(--auction)] shadow-xs" />
                 <div className="min-w-0">
@@ -108,8 +132,13 @@ function AuditPage() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Actor: <strong className="text-foreground">{a.actor}</strong> • Time: {fmtDate(a.at)} • Event:{" "}
-                    <Link to="/console/events/$id" params={{ id: a.eventId }} className="font-semibold text-[color:var(--navy)] hover:underline">
+                    Actor: <strong className="text-foreground">{a.actor}</strong> • Time:{" "}
+                    {fmtDate(a.at)} • Event:{" "}
+                    <Link
+                      to="/console/events/$id"
+                      params={{ id: a.eventId }}
+                      className="font-semibold text-[color:var(--navy)] hover:underline"
+                    >
                       {a.eventId}
                     </Link>{" "}
                     ({a.title})

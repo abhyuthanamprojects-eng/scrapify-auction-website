@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { ORG_USERS, CATEGORIES, fmtDate, type OrgUser } from "@/lib/enterprise";
+import { CATEGORIES, fmtDate, type OrgUser } from "@/lib/enterprise";
+import { api } from "@/lib/api-client";
 import { Card, PageHead, Pill, Table } from "@/components/console/shell";
 import { Plus, ShieldCheck, UserPlus, X, Settings2, Key, Users } from "lucide-react";
 
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/console/organisation")({
       },
     ],
   }),
+  loader: () => api.getAdminOrganisationUsers({ per_page: "100" }),
   component: OrganisationPage,
 });
 
@@ -37,7 +39,17 @@ const NOTIFICATIONS = [
 ];
 
 function OrganisationPage() {
-  const [users, setUsers] = useState<OrgUser[]>(ORG_USERS);
+  const response = Route.useLoaderData() as any;
+  const [users, setUsers] = useState<OrgUser[]>(() =>
+    (Array.isArray(response?.data) ? response.data : []).map((u: any) => ({
+      name: String(u.name ?? ""),
+      email: String(u.email ?? ""),
+      role: u.role ?? "Event owner",
+      bu: String(u.business_unit ?? u.bu ?? ""),
+      mfa: Boolean(u.mfa_enabled ?? u.mfa),
+      lastActive: Date.parse(u.last_active_at ?? "") || 0,
+    })),
+  );
   const [categories, setCategories] = useState<string[]>([...CATEGORIES]);
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [addCatOpen, setAddCatOpen] = useState(false);
@@ -101,7 +113,15 @@ function OrganisationPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card title={`Enterprise Users & RBAC Roles (${users.length})`} className="lg:col-span-2">
-          <Table head={["User Name & Email", "Assigned Role", "Business Unit", "MFA Posture", "Last Active"]}>
+          <Table
+            head={[
+              "User Name & Email",
+              "Assigned Role",
+              "Business Unit",
+              "MFA Posture",
+              "Last Active",
+            ]}
+          >
             {users.map((u) => (
               <tr key={u.email} className="hover:bg-muted/20">
                 <td className="py-3 pr-4">
@@ -133,7 +153,10 @@ function OrganisationPage() {
               ["IP Allow-Listing", "Enterprise VPN Gateway Active", "good"],
               ["Audit Readiness", "SOC2 & ISO 27001 Certified", "good"],
             ].map(([k, v, tone]) => (
-              <li key={k} className="flex items-start justify-between gap-3 bg-muted/30 p-2.5 rounded-lg border border-border">
+              <li
+                key={k}
+                className="flex items-start justify-between gap-3 bg-muted/30 p-2.5 rounded-lg border border-border"
+              >
                 <div>
                   <p className="font-bold text-xs text-foreground">{k}</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">{v}</p>
@@ -146,7 +169,10 @@ function OrganisationPage() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card title="Notification & Webhook Matrix" desc="System trigger → Recipient → Broadcast channels">
+        <Card
+          title="Notification & Webhook Matrix"
+          desc="System trigger → Recipient → Broadcast channels"
+        >
           <Table head={["Event Trigger", "Recipient Group", "Notification Channels"]}>
             {NOTIFICATIONS.map((n) => (
               <tr key={n[0]}>
@@ -158,16 +184,24 @@ function OrganisationPage() {
           </Table>
         </Card>
 
-        <Card title={`Sector & Category Schemas (${categories.length})`} desc="Dynamic attribute schemas configure lot inputs on the fly">
+        <Card
+          title={`Sector & Category Schemas (${categories.length})`}
+          desc="Dynamic attribute schemas configure lot inputs on the fly"
+        >
           <div className="flex flex-wrap gap-2">
             {categories.map((c) => (
-              <span key={c} className="rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-semibold shadow-xs">
+              <span
+                key={c}
+                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-semibold shadow-xs"
+              >
                 {c}
               </span>
             ))}
           </div>
           <p className="mt-4 text-xs text-muted-foreground leading-relaxed bg-muted/30 p-3 rounded-lg">
-            Scrapify dynamic categories define sector-specific attribute inputs (e.g. Moisture %, Ferrous grade, Running hours, Vehicle RC, CPCB compliance) automatically without code changes.
+            Scrapify dynamic categories define sector-specific attribute inputs (e.g. Moisture %,
+            Ferrous grade, Running hours, Vehicle RC, CPCB compliance) automatically without code
+            changes.
           </p>
         </Card>
       </div>
@@ -175,10 +209,17 @@ function OrganisationPage() {
       {/* Add User Modal */}
       {addUserOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <form onSubmit={handleAddUser} className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95">
+          <form
+            onSubmit={handleAddUser}
+            className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <h3 className="font-display text-base font-bold">Add Enterprise User</h3>
-              <button type="button" onClick={() => setAddUserOpen(false)} className="p-1 text-muted-foreground hover:bg-muted rounded">
+              <button
+                type="button"
+                onClick={() => setAddUserOpen(false)}
+                className="p-1 text-muted-foreground hover:bg-muted rounded"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -194,7 +235,9 @@ function OrganisationPage() {
                 />
               </div>
               <div>
-                <label className="font-semibold text-muted-foreground">Corporate Email Address *</label>
+                <label className="font-semibold text-muted-foreground">
+                  Corporate Email Address *
+                </label>
                 <input
                   required
                   type="email"
@@ -252,10 +295,17 @@ function OrganisationPage() {
       {/* Add Category Modal */}
       {addCatOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <form onSubmit={handleAddCategory} className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95">
+          <form
+            onSubmit={handleAddCategory}
+            className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <h3 className="font-display text-base font-bold">Add Category Schema</h3>
-              <button type="button" onClick={() => setAddCatOpen(false)} className="p-1 text-muted-foreground hover:bg-muted rounded">
+              <button
+                type="button"
+                onClick={() => setAddCatOpen(false)}
+                className="p-1 text-muted-foreground hover:bg-muted rounded"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>

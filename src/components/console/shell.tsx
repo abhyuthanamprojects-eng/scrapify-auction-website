@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
   Gavel,
@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Sparkles,
 } from "lucide-react";
-import { STATE_LABEL, type EventState, EVENTS, ORDERS, VENDORS } from "@/lib/enterprise";
+import { STATE_LABEL, type EventState } from "@/lib/enterprise";
+import { api } from "@/lib/api-client";
 
 const NAV = [
   { to: "/console", label: "Dashboard", Icon: LayoutDashboard, exact: true },
@@ -40,37 +41,66 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<
+    Array<{ type: string; id: string; title: string; link: string }>
+  >([]);
   const [notifOpen, setNotifOpen] = useState(false);
 
-  const searchResults = searchQuery.trim()
-    ? [
-        ...EVENTS.filter((e) => e.title.toLowerCase().includes(searchQuery.toLowerCase()) || e.id.toLowerCase().includes(searchQuery.toLowerCase())).map((e) => ({
-          type: "Event",
-          id: e.id,
-          title: e.title,
-          link: `/console/events/${e.id}`,
-        })),
-        ...ORDERS.filter((o) => o.eventTitle.toLowerCase().includes(searchQuery.toLowerCase()) || o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())).map((o) => ({
-          type: "Order",
-          id: o.orderNumber,
-          title: o.eventTitle,
-          link: `/console/orders`,
-        })),
-        ...VENDORS.filter((v) => v.name.toLowerCase().includes(searchQuery.toLowerCase())).map((v) => ({
-          type: "Vendor",
-          id: v.id,
-          title: v.name,
-          link: `/console/vendors`,
-        })),
-      ].slice(0, 6)
-    : [];
+  useEffect(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      setSearchResults([]);
+      return;
+    }
+    let active = true;
+    Promise.all([
+      api.getAuctions({ search: query, per_page: "5" }),
+      api.getOrders({ search: query, per_page: "5" }),
+      api.getVendors({ search: query, per_page: "5" }),
+    ])
+      .then(([events, orders, vendors]) => {
+        if (!active) return;
+        const rows = (response: any) => (Array.isArray(response?.data) ? response.data : []);
+        setSearchResults(
+          [
+            ...rows(events).map((e: any) => ({
+              type: "Event",
+              id: String(e.code ?? e.id),
+              title: String(e.title ?? e.code),
+              link: `/console/events/${e.code ?? e.id}`,
+            })),
+            ...rows(orders).map((o: any) => ({
+              type: "Order",
+              id: String(o.code ?? o.id),
+              title: String(o.title ?? o.order_number ?? o.code),
+              link: "/console/orders",
+            })),
+            ...rows(vendors).map((v: any) => ({
+              type: "Vendor",
+              id: String(v.code ?? v.id),
+              title: String(v.company_name ?? v.name ?? v.code),
+              link: "/console/vendors",
+            })),
+          ].slice(0, 6),
+        );
+      })
+      .catch(() => {
+        if (active) setSearchResults([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [searchQuery]);
 
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto flex max-w-[1600px]">
         {/* Left Sidebar */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-[color:var(--navy)] text-white lg:flex">
-          <Link to="/console" className="flex items-center gap-2 px-5 py-5 font-display text-base font-bold">
+          <Link
+            to="/console"
+            className="flex items-center gap-2 px-5 py-5 font-display text-base font-bold"
+          >
             <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--auction)] text-white shadow-md">
               <Gavel className="h-5 w-5" />
             </span>
@@ -107,7 +137,9 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
               <ShieldCheck className="h-4 w-4 text-[color:var(--success)]" />
               SOC2 & ISO 27001 Active
             </div>
-            <p className="mt-1 text-[11px] text-white/50">All auction bids & awards are cryptographically signed.</p>
+            <p className="mt-1 text-[11px] text-white/50">
+              All auction bids & awards are cryptographically signed.
+            </p>
           </div>
         </aside>
 
@@ -121,7 +153,9 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
             >
               <Search className="h-4 w-4" />
               <span className="w-40 text-left sm:w-64">Search events, vendors, orders...</span>
-              <kbd className="hidden rounded bg-background px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground sm:inline-block">⌘K</kbd>
+              <kbd className="hidden rounded bg-background px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground sm:inline-block">
+                ⌘K
+              </kbd>
             </button>
 
             <div className="ml-auto flex items-center gap-2">
@@ -151,20 +185,28 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
                   <div className="absolute right-0 mt-2 w-80 rounded-xl border border-border bg-card p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-center justify-between pb-3 border-b border-border">
                       <span className="font-display text-sm font-bold">Actionable Notices</span>
-                      <span className="text-[11px] text-[color:var(--auction)] font-semibold">3 Unread</span>
+                      <span className="text-[11px] text-[color:var(--auction)] font-semibold">
+                        3 Unread
+                      </span>
                     </div>
                     <div className="mt-3 space-y-2.5 text-xs">
                       <div className="rounded-lg bg-muted/60 p-2.5">
                         <div className="font-semibold text-foreground">Award Approval Required</div>
-                        <p className="text-muted-foreground mt-0.5">FWD-2026-0341 closed at ₹94.20 L (H1). Awaiting CPO sign-off.</p>
+                        <p className="text-muted-foreground mt-0.5">
+                          FWD-2026-0341 closed at ₹94.20 L (H1). Awaiting CPO sign-off.
+                        </p>
                       </div>
                       <div className="rounded-lg bg-muted/60 p-2.5">
                         <div className="font-semibold text-foreground">Anti-Sniping Triggered</div>
-                        <p className="text-muted-foreground mt-0.5">REV-2026-0118 extended by 5 mins due to T-3m bid.</p>
+                        <p className="text-muted-foreground mt-0.5">
+                          REV-2026-0118 extended by 5 mins due to T-3m bid.
+                        </p>
                       </div>
                       <div className="rounded-lg bg-muted/60 p-2.5">
                         <div className="font-semibold text-foreground">Gate Pass Generated</div>
-                        <p className="text-muted-foreground mt-0.5">Vehicle MH-04-AB-1290 checked in at Plot 48 plant yard.</p>
+                        <p className="text-muted-foreground mt-0.5">
+                          Vehicle MH-04-AB-1290 checked in at Plot 48 plant yard.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -195,7 +237,10 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
                     placeholder="Search sourcing events, orders, contracts, vendors..."
                     className="flex-1 bg-transparent text-sm font-medium focus:outline-none"
                   />
-                  <button onClick={() => setSearchOpen(false)} className="rounded p-1 text-muted-foreground hover:bg-muted">
+                  <button
+                    onClick={() => setSearchOpen(false)}
+                    className="rounded p-1 text-muted-foreground hover:bg-muted"
+                  >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -220,10 +265,13 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
                       </Link>
                     ))
                   ) : searchQuery.trim() ? (
-                    <div className="py-8 text-center text-xs text-muted-foreground">No matches found for "{searchQuery}"</div>
+                    <div className="py-8 text-center text-xs text-muted-foreground">
+                      No matches found for "{searchQuery}"
+                    </div>
                   ) : (
                     <div className="py-6 text-center text-xs text-muted-foreground">
-                      Type to search across all Scrapify enterprise lots, vendors, and fulfilment orders.
+                      Type to search across all Scrapify enterprise lots, vendors, and fulfilment
+                      orders.
                     </div>
                   )}
                 </div>
@@ -354,7 +402,13 @@ export function StateBadge({ state }: { state: EventState }) {
   );
 }
 
-export function Pill({ children, tone = "muted" }: { children: ReactNode; tone?: "muted" | "good" | "warn" | "bad" }) {
+export function Pill({
+  children,
+  tone = "muted",
+}: {
+  children: ReactNode;
+  tone?: "muted" | "good" | "warn" | "bad";
+}) {
   const tones = {
     muted: "bg-muted text-muted-foreground",
     good: "bg-[color:var(--success)]/15 text-[color:var(--success)]",
@@ -362,7 +416,9 @@ export function Pill({ children, tone = "muted" }: { children: ReactNode; tone?:
     bad: "bg-destructive/12 text-destructive",
   } as const;
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${tones[tone]}`}>
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${tones[tone]}`}
+    >
       {children}
     </span>
   );
