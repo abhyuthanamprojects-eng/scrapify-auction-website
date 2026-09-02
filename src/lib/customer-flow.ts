@@ -1,6 +1,6 @@
 // Customer-panel domain layer (mock / localStorage only).
 // Mirrors the admin status contract: the customer never invents a status.
-import type { Lot } from "./mock-lots";
+import type { Lot } from "./auction-data";
 
 export type EmdStatus =
   | "not_paid"
@@ -277,11 +277,11 @@ export function emdPercent(lot: Lot): number {
 }
 
 export function lotType(lot: Lot): "Single" | "Lot-wise" {
-  return lot.weight.includes("MT") && lot.bidders % 2 === 0 ? "Lot-wise" : "Single";
+  return lot.subLots.length > 1 ? "Lot-wise" : "Single";
 }
 
 export function startsAt(lot: Lot): number {
-  return lot.endsAt - 7 * 24 * 60 * 60 * 1000;
+  return lot.startsAt;
 }
 
 export function endsAtWithExtension(lot: Lot, extendedMinutes = 0): number {
@@ -289,23 +289,15 @@ export function endsAtWithExtension(lot: Lot, extendedMinutes = 0): number {
 }
 
 export function subLots(lot: Lot) {
-  if (lotType(lot) === "Single") {
-    return [
-      {
-        no: "1",
-        description: lot.title,
-        quantity: lot.weight,
-        startPrice: lot.reserve,
-      },
-    ];
-  }
-  const total = parseFloat(lot.weight) || 10;
-  return [1, 2, 3].map((i) => ({
-    no: String(i),
-    description: `${lot.title} — sub-lot ${i}`,
-    quantity: `${(total / 3).toFixed(1)} MT`,
-    startPrice: Math.round(lot.reserve / 3),
-  }));
+  if (lot.subLots.length > 0) return lot.subLots;
+  return [
+    {
+      no: "1",
+      description: lot.title,
+      quantity: lot.weight,
+      startPrice: lot.reserve,
+    },
+  ];
 }
 
 export function inspection(lot: Lot) {
@@ -317,21 +309,11 @@ export function inspection(lot: Lot) {
 }
 
 export function terms(lot: Lot) {
-  return [
-    `EMD of ${inr(lot.emd)} (${emdPercent(lot)}% of starting price) is mandatory before bidding.`,
-    `Minimum increment ${inr(lot.increment)}. Anti-sniping: last-minute bids extend the auction.`,
-    "GST 18% and TCS 1% apply on the winning value; balance is payable after award.",
-    "Material must be lifted within 10 working days of full payment.",
-    "Weighbridge slip at the seller site is final for quantity settlement.",
-  ];
+  return lot.terms;
 }
 
 export function documents(lot: Lot) {
-  return [
-    { name: `Catalogue_${lot.id}.pdf`, size: "480 KB" },
-    { name: `Terms_${lot.id}.pdf`, size: "120 KB" },
-    { name: `Inspection_Note_${lot.id}.pdf`, size: "96 KB" },
-  ];
+  return [] as Array<{ name: string; size: string }>;
 }
 
 export function maskedAlias(i: number) {

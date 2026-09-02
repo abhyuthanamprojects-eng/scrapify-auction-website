@@ -11,24 +11,21 @@ import {
   X,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
-import { getLot, formatINR, type Lot } from "@/lib/mock-lots";
+import { getLot, formatINR, type Lot } from "@/lib/auction-data";
+import { api } from "@/lib/api-client";
 import { useTick } from "@/hooks/use-tick";
 import { useFlow, useHydrated } from "@/hooks/use-flow";
 import { useRegistration } from "@/hooks/use-registration";
 import {
-  endNow,
-  extendAuction,
   lotType,
   maskedAlias,
-  placeBid,
   subLots,
   notify,
 } from "@/lib/customer-flow";
 
 export const Route = createFileRoute("/live/$id")({
-  loader: ({ params }) => {
-    const lot = getLot(params.id);
-    if (!lot) throw notFound();
+  loader: async ({ params }) => {
+    const lot = await getLot(params.id);
     return { lot };
   },
   head: ({ loaderData }) => {
@@ -232,33 +229,6 @@ function LiveRoom() {
             </ul>
           </div>
 
-          <div className="mt-6 card-soft p-6 text-xs text-muted-foreground">
-            <div className="font-semibold uppercase tracking-wider">
-              Auctioneer simulation (demo)
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                onClick={() => extendAuction(lot, 5)}
-                className="rounded-full border border-border bg-card px-4 py-1.5 font-semibold text-foreground hover:border-[color:var(--auction)]"
-              >
-                Extend +5 min
-              </button>
-              <button
-                onClick={() => endNow(lot)}
-                className="rounded-full border border-border bg-card px-4 py-1.5 font-semibold text-foreground hover:border-destructive"
-              >
-                End now
-              </button>
-              <button
-                onClick={() =>
-                  notify("You were outbid", `Another bidder leads on ${lot.id}.`, "warn")
-                }
-                className="rounded-full border border-border bg-card px-4 py-1.5 font-semibold text-foreground hover:border-[color:var(--accent-blue)]"
-              >
-                Send outbid alert
-              </button>
-            </div>
-          </div>
         </div>
 
         <aside className="lg:sticky lg:top-24 lg:self-start">
@@ -387,10 +357,19 @@ function LiveRoom() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  placeBid(lot, amount);
-                  notify("Bid placed", `${formatINR(amount)} on ${lot.id}.`, "success");
-                  setConfirm(false);
+                onClick={async () => {
+                  try {
+                    await api.placeBid(lot.id, {
+                      amount,
+                      ...(perSubLot ? { lot: subLot } : {}),
+                    });
+                    notify("Bid placed", `${formatINR(amount)} on ${lot.id}.`, "success");
+                    setConfirm(false);
+                    await navigate({ to: "/live/$id", params: { id: lot.id }, replace: true });
+                  } catch (cause) {
+                    setError(cause instanceof Error ? cause.message : "Bid could not be placed.");
+                    setConfirm(false);
+                  }
                 }}
                 className="flex-1 rounded-full bg-[color:var(--auction)] py-2.5 text-sm font-bold text-white"
               >

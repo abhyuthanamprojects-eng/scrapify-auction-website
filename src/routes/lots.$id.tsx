@@ -18,7 +18,7 @@ import {
   Gavel,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
-import { getLot, formatINR, timeLeft, type Lot } from "@/lib/mock-lots";
+import { getLot, formatINR, timeLeft, type Lot } from "@/lib/auction-data";
 import { useTick } from "@/hooks/use-tick";
 import { useRegistration } from "@/hooks/use-registration";
 import { useFlow } from "@/hooks/use-flow";
@@ -39,9 +39,8 @@ import {
 } from "@/lib/customer-flow";
 
 export const Route = createFileRoute("/lots/$id")({
-  loader: ({ params }) => {
-    const lot = getLot(params.id);
-    if (!lot) throw notFound();
+  loader: async ({ params }) => {
+    const lot = await getLot(params.id);
     return { lot };
   },
   head: ({ loaderData }) => {

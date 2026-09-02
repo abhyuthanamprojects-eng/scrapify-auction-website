@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { Clock, Users, MapPin, ArrowDownLeft, Heart, FileText, CalendarClock } from "lucide-react";
-import type { Lot } from "@/lib/mock-lots";
-import { formatINR, timeLeft } from "@/lib/mock-lots";
-import { useTick } from "@/hooks/use-tick";
+import type { Lot } from "@/lib/auction-data";
+import { formatINR, timeLeft } from "@/lib/auction-data";
+import { api, getAnonymousKey } from "@/lib/api-client";
 import { toggleInterested } from "@/lib/registration-store";
+import { useTick } from "@/hooks/use-tick";
 import { useInterested } from "@/hooks/use-registration";
 
 export function LotCard({ lot, onDetails }: { lot: Lot; onDetails?: (lot: Lot) => void }) {
@@ -14,8 +15,7 @@ export function LotCard({ lot, onDetails }: { lot: Lot; onDetails?: (lot: Lot) =
   const interestedIds = useInterested();
   const isInterested = interestedIds.includes(lot.id);
 
-  // Derive a plausible start time from endsAt (mock only): 7 days before end
-  const startsAt = lot.endsAt - 7 * 24 * 60 * 60 * 1000;
+  const startsAt = lot.startsAt;
   const fmt = (ms: number) =>
     new Date(ms).toLocaleString("en-IN", {
       day: "2-digit",
@@ -106,7 +106,14 @@ export function LotCard({ lot, onDetails }: { lot: Lot; onDetails?: (lot: Lot) =
         <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
           <button
             type="button"
-            onClick={stop(() => toggleInterested(lot.id))}
+            onClick={stop(async () => {
+              if (isInterested) {
+                await api.unmarkInterested(lot.id, getAnonymousKey());
+              } else {
+                await api.markInterested(lot.id, getAnonymousKey());
+              }
+              toggleInterested(lot.id);
+            })}
             aria-pressed={isInterested}
             className={`inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
               isInterested

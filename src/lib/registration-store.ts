@@ -22,6 +22,7 @@ export type RegistrationState = {
   email: string;
   otpVerified: boolean;
   googleLinked: boolean;
+  vendorCode: string;
   // Step 2
   password: string;
   confirmPassword: string;
@@ -60,6 +61,7 @@ export const emptyRegistration = (): RegistrationState => ({
   email: "",
   otpVerified: false,
   googleLinked: false,
+  vendorCode: "",
   password: "",
   confirmPassword: "",
   companyName: "",

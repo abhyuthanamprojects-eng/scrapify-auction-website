@@ -1,9 +1,14 @@
 // Scrapify Auctions Web Unified API Client
-// Interfaces directly with Laravel REST API (/api/v1) with resilient offline fallback
+// Interfaces directly with Laravel REST API (/api/v1). Production data must
+// never silently fall back to demo records when the API is unavailable.
 
-const API_BASE_URL = typeof window !== 'undefined' && (window as any).ENV_API_URL 
-  ? (window as any).ENV_API_URL 
-  : 'http://localhost:8000/api/v1';
+const runtimeApiUrl =
+  typeof window !== 'undefined'
+    ? (window as Window & { ENV_API_URL?: string }).ENV_API_URL
+    : undefined;
+const API_BASE_URL = (
+  runtimeApiUrl || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+).replace(/\/$/, '');
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -18,6 +23,16 @@ export interface ApiResponse<T> {
     code: string;
     details?: any;
   };
+}
+
+export function getAnonymousKey(): string {
+  if (typeof window === 'undefined') return '';
+  const storageKey = 'scrapify.anonymous-key';
+  const existing = window.localStorage.getItem(storageKey);
+  if (existing) return existing;
+  const value = window.crypto.randomUUID();
+  window.localStorage.setItem(storageKey, value);
+  return value;
 }
 
 class ScrapifyApiClient {
@@ -96,6 +111,22 @@ class ScrapifyApiClient {
     return res;
   }
 
+  async requestOtp(identifier: string, purpose = 'register') {
+    return this.request<any>('/auth/request-otp', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, purpose }),
+    });
+  }
+
+  async verifyOtp(identifier: string, code: string) {
+    const response = await this.request<any>('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, code }),
+    });
+    if (response.token) this.setToken(response.token);
+    return response;
+  }
+
   async me() {
     return this.request<any>('/auth/me');
   }
@@ -133,9 +164,27 @@ class ScrapifyApiClient {
     return json;
   }
 
+  async registerVendor(data: Record<string, unknown>) {
+    return this.request<any>('/vendors/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async submitVendorPayment(vendorCode: string, data: { method: string; reference: string }) {
+    return this.request<any>(`/vendors/${vendorCode}/registration-payment`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   /* ---------------- Categories & Dynamic Attributes ---------------- */
   async getCategories() {
     return this.request<any>('/categories');
+  }
+
+  async getPlatformConfig() {
+    return this.request<{ vendor_registration_fee: number; currency: string }>('/platform-config');
   }
 
   /* ---------------- Auctions & Lots ---------------- */
@@ -150,6 +199,24 @@ class ScrapifyApiClient {
 
   async getAuctionLots(code: string) {
     return this.request<any>(`/auctions/${code}/lots`);
+  }
+
+  async getAuctionBids(code: string) {
+    return this.request<any>(`/auctions/${code}/bids`);
+  }
+
+  async markInterested(code: string, anonKey?: string) {
+    return this.request<any>(`/auctions/${code}/interested`, {
+      method: 'POST',
+      body: JSON.stringify(anonKey ? { anon_key: anonKey } : {}),
+    });
+  }
+
+  async unmarkInterested(code: string, anonKey?: string) {
+    const query = anonKey ? `?anon_key=${encodeURIComponent(anonKey)}` : '';
+    return this.request<any>(`/auctions/${code}/interested${query}`, {
+      method: 'DELETE',
+    });
   }
 
   async createAuction(data: any) {
@@ -177,14 +244,14 @@ class ScrapifyApiClient {
     return this.request<any>(`/auctions/${code}/live-state`);
   }
 
-  async placeBid(code: string, data: { amount: number; lot_id?: number; is_proxy?: boolean }) {
+  async placeBid(code: string, data: { amount: number; lot?: string }) {
     return this.request<any>(`/auctions/${code}/bids`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async setProxyBid(code: string, data: { max_amount: number; lot_id?: number }) {
+  async setProxyBid(code: string, data: { max_amount: number; lot?: string }) {
     return this.request<any>(`/auctions/${code}/proxy-bid`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -265,6 +332,43 @@ class ScrapifyApiClient {
   async getOrders(params: Record<string, any> = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request<any>(`/orders${query ? `?${query}` : ''}`);
+  }
+
+  async getVendors(params: Record<string, any> = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request<any>(`/vendors${query ? `?${query}` : ''}`);
+  }
+
+  async getOrganizations(params: Record<string, any> = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request<any>(`/organizations${query ? `?${query}` : ''}`);
+  }
+
+  async getWallet() {
+    return this.request<any>('/wallet');
+  }
+
+  async getWalletTransactions(params: Record<string, any> = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request<any>(`/wallet/transactions${query ? `?${query}` : ''}`);
+  }
+
+  async getEmd(params: Record<string, any> = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request<any>(`/emd${query ? `?${query}` : ''}`);
+  }
+
+  async getNotifications(params: Record<string, any> = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request<any>(`/notifications${query ? `?${query}` : ''}`);
+  }
+
+  async validateToken(token: string) {
+    return this.request<any>(`/tokens/validate/${encodeURIComponent(token)}`);
+  }
+
+  async getMyBids() {
+    return this.request<any>('/my-bids');
   }
 
   async getOrder(code: string) {

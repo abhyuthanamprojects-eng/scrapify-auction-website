@@ -2,11 +2,23 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Download, Wallet as WalletIcon, Lock, RefreshCcw } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { VendorStatusBanner } from "@/components/vendor-status-banner";
-import { useFlow } from "@/hooks/use-flow";
-import { getLot, formatINR } from "@/lib/mock-lots";
+import { api } from "@/lib/api-client";
+import { formatINR } from "@/lib/auction-data";
 import { EMD_LABEL } from "@/lib/customer-flow";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
+  loader: async () => {
+    const [wallet, emd, txns] = await Promise.all([
+      api.getWallet().catch(() => ({ data: { balance_inr: 0 } })),
+      api.getEmd().catch(() => ({ data: [] })),
+      api.getWalletTransactions().catch(() => ({ data: [] })),
+    ]);
+    return {
+      wallet: wallet.data ?? wallet,
+      emdRows: Array.isArray(emd.data) ? emd.data : [],
+      txns: Array.isArray(txns.data) ? txns.data : [],
+    };
+  },
   head: () => ({
     meta: [
       { title: "Wallet & EMD ledger — Scrapify Auction" },
@@ -26,17 +38,17 @@ export const Route = createFileRoute("/_authenticated/wallet")({
 });
 
 function WalletPage() {
-  const flow = useFlow();
-  const rows = Object.values(flow.participation);
-  const blocked = rows
-    .filter((p) => p.emd === "confirmed")
-    .reduce((s, p) => s + (getLot(p.lotId)?.emd ?? 0), 0);
-  const credits = flow.txns
-    .filter((t) => t.kind === "credit")
-    .reduce((s, t) => s + t.amount, 0);
-  const debits = flow.txns
-    .filter((t) => t.kind === "debit")
-    .reduce((s, t) => s + t.amount, 0);
+  const { wallet, emdRows, txns } = Route.useLoaderData() as {
+    wallet: Record<string, any>;
+    emdRows: Record<string, any>[];
+    txns: Record<string, any>[];
+  };
+  const blocked = emdRows
+    .filter((row) => ["confirmed", "held", "locked"].includes(String(row.status ?? row.state)))
+    .reduce((s, row) => s + Number(row.amount_inr ?? row.amount ?? 0), 0);
+  const credits = txns
+    .filter((t) => String(t.type ?? t.kind) === "credit")
+    .reduce((s, t) => s + Number(t.amount_inr ?? t.amount ?? 0), 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -51,7 +63,7 @@ function WalletPage() {
         </p>
 
         <div className="mt-8 grid gap-5 sm:grid-cols-3">
-          <Card icon={WalletIcon} label="Available balance" value={formatINR(Math.max(0, credits - debits))} />
+          <Card icon={WalletIcon} label="Available balance" value={formatINR(Number(wallet.balance_inr ?? wallet.balance ?? 0))} />
           <Card icon={Lock} label="EMD blocked" value={formatINR(blocked)} />
           <Card icon={RefreshCcw} label="Refunds credited" value={formatINR(credits)} />
         </div>
@@ -63,7 +75,7 @@ function WalletPage() {
               <Download className="h-3.5 w-3.5" /> Statement (PDF)
             </button>
           </div>
-          {rows.length === 0 ? (
+          {emdRows.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">
               No auction participation yet.{" "}
               <Link to="/" className="underline">
@@ -82,26 +94,27 @@ function WalletPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((p) => {
-                  const lot = getLot(p.lotId);
+                {emdRows.map((p) => {
+                  const lot = p.auction ?? {};
+                  const lotId = String(p.auction_code ?? lot.code ?? "");
                   return (
-                    <tr key={p.lotId} className="border-t border-border">
+                    <tr key={String(p.id ?? lotId)} className="border-t border-border">
                       <td className="px-5 py-3">
                         <Link
                           to="/lots/$id"
-                          params={{ id: p.lotId }}
+                          params={{ id: lotId }}
                           className="font-medium hover:underline"
                         >
-                          {p.lotId}
+                          {lotId}
                         </Link>
-                        <div className="text-xs text-muted-foreground">{lot?.title}</div>
+                        <div className="text-xs text-muted-foreground">{String(lot.title ?? "")}</div>
                       </td>
                       <td className="px-5 py-3 font-display font-bold">
-                        {formatINR(lot?.emd ?? 0)}
+                        {formatINR(Number(p.amount_inr ?? p.amount ?? 0))}
                       </td>
-                      <td className="px-5 py-3">{EMD_LABEL[p.emd]}</td>
+                      <td className="px-5 py-3">{EMD_LABEL[(p.status ?? p.state) as keyof typeof EMD_LABEL] ?? String(p.status ?? p.state ?? "Pending")}</td>
                       <td className="px-5 py-3 text-xs text-muted-foreground">
-                        {p.reference ?? "—"}
+                        {p.reference ?? p.payment_reference ?? "—"}
                       </td>
                     </tr>
                   );
@@ -115,25 +128,25 @@ function WalletPage() {
           <div className="border-b border-border px-5 py-3">
             <h2 className="font-display text-lg font-bold">Transaction history</h2>
           </div>
-          {flow.txns.length === 0 ? (
+          {txns.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">No transactions yet.</p>
           ) : (
             <ul className="divide-y divide-border">
-              {flow.txns.map((t) => (
-                <li key={t.id} className="flex items-center justify-between px-5 py-3 text-sm">
+              {txns.map((t) => (
+                <li key={String(t.id)} className="flex items-center justify-between px-5 py-3 text-sm">
                   <div>
-                    <div className="font-medium text-foreground">{t.label}</div>
+                    <div className="font-medium text-foreground">{String(t.label ?? t.description ?? "Wallet transaction")}</div>
                     <div className="text-xs text-muted-foreground">
-                      {new Date(t.at).toLocaleString("en-IN")} · {t.kind}
+                      {new Date(String(t.at ?? t.created_at ?? Date.now())).toLocaleString("en-IN")} · {String(t.type ?? t.kind ?? "")}
                     </div>
                   </div>
                   <span
                     className={`font-display font-bold ${
-                      t.kind === "credit" ? "text-emerald-600" : "text-foreground"
+                      String(t.type ?? t.kind) === "credit" ? "text-emerald-600" : "text-foreground"
                     }`}
                   >
-                    {t.kind === "credit" ? "+" : "−"}
-                    {formatINR(t.amount)}
+                    {String(t.type ?? t.kind) === "credit" ? "+" : "-"}
+                    {formatINR(Number(t.amount_inr ?? t.amount ?? 0))}
                   </span>
                 </li>
               ))}

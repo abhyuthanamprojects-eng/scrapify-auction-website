@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Gavel, Search, Bell, LogOut, LayoutDashboard, Wallet } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useFlow } from "@/hooks/use-flow";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api-client";
 
 export function SiteHeader() {
   const { user, primaryRole, loading } = useAuth();
@@ -11,7 +11,8 @@ export function SiteHeader() {
   const navigate = useNavigate();
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await api.logout();
+    window.dispatchEvent(new CustomEvent("scrapify:auth"));
     navigate({ to: "/", replace: true });
   };
 

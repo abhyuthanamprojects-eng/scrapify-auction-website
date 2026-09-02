@@ -14,9 +14,11 @@ import {
   Filter,
 } from "lucide-react";
 import { Card, PageHead, Pill, Table, Kpi } from "@/components/console/shell";
-import { ORDERS, inr, cr, type Order } from "@/lib/enterprise";
+import { inr, cr, type Order } from "@/lib/enterprise";
+import { loadOrders } from "@/lib/enterprise-api";
 
 export const Route = createFileRoute("/console/orders")({
+  loader: () => loadOrders(),
   head: () => ({
     meta: [
       { title: "Orders & Contracts — Scrapify Auctions" },
@@ -27,11 +29,12 @@ export const Route = createFileRoute("/console/orders")({
 });
 
 function OrdersPage() {
+  const orders = Route.useLoaderData();
   const [filterType, setFilterType] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  const filteredOrders = ORDERS.filter((o) => {
+  const filteredOrders = orders.filter((o) => {
     const matchesType = filterType === "all" || o.type.toLowerCase().includes(filterType.toLowerCase());
     const matchesSearch =
       !search ||
@@ -61,8 +64,8 @@ function OrdersPage() {
 
       {/* KPI Cards */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Active Orders" value={String(ORDERS.length)} hint="Across all categories" />
-        <Kpi label="Total Contract Value" value={cr(ORDERS.reduce((s, o) => s + o.totalValue, 0))} delta="+14.2%" hint="YTD execution" />
+        <Kpi label="Active Orders" value={String(orders.length)} hint="Across all categories" />
+        <Kpi label="Total Contract Value" value={cr(orders.reduce((s, o) => s + o.totalValue, 0))} delta="+14.2%" hint="YTD execution" />
         <Kpi label="Gate Passes Issued" value="12 Valid" hint="Yard entry clearance" />
         <Kpi label="Weighbridge Matched" value="99.4%" delta="Zero dispute" hint="Gross - Tare verified" />
       </div>

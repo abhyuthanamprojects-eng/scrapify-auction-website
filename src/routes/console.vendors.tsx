@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { VENDORS, CATEGORIES, type Vendor } from "@/lib/enterprise";
+import { CATEGORIES, type Vendor } from "@/lib/enterprise";
+import { loadVendors } from "@/lib/enterprise-api";
 import { Card, Kpi, PageHead, Pill, Table } from "@/components/console/shell";
 import { Plus, Search, ShieldCheck, UserCheck, X, Eye, ShieldAlert, Award } from "lucide-react";
 
 export const Route = createFileRoute("/console/vendors")({
+  loader: () => loadVendors(),
   head: () => ({
     meta: [
       { title: "Vendor Directory & Scorecards — Scrapify Auctions" },
@@ -24,7 +26,8 @@ export const Route = createFileRoute("/console/vendors")({
 });
 
 function VendorsPage() {
-  const [vendorsList, setVendorsList] = useState<Vendor[]>(VENDORS);
+  const initialVendors = Route.useLoaderData();
+  const [vendorsList, setVendorsList] = useState<Vendor[]>(initialVendors);
   const [cat, setCat] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);

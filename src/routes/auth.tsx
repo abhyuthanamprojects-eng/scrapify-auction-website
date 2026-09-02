@@ -2,8 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { Gavel } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
+import { api } from "@/lib/api-client";
 
 const searchSchema = z.object({
   mode: z.enum(["signin", "signup"]).optional(),
@@ -39,6 +38,7 @@ function AuthPage() {
   const [role, setRole] = useState<Role>("buyer");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,9 +49,7 @@ function AuthPage() {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: target(search.redirect ?? null) });
-    });
+    if (api.getToken()) navigate({ to: target(search.redirect ?? null) });
   }, [navigate, search.redirect]);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -60,41 +58,16 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: window.location.origin,
-            data: { full_name: fullName, role },
-          },
-        });
-        if (error) throw error;
+        await api.register({ name: fullName, email, phone, password, role });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
+        await api.login(email, password);
       }
+      window.dispatchEvent(new CustomEvent("scrapify:auth"));
       navigate({ to: target(search.redirect ?? null) });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setBusy(false);
-    }
-  };
-
-  const onGoogle = async () => {
-    setError(null);
-    try {
-      const res = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
-      });
-      if (res.error) throw res.error;
-      if (res.redirected) return;
-      navigate({ to: target(search.redirect ?? null) });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Google sign-in failed");
     }
   };
 
@@ -152,6 +125,9 @@ function AuthPage() {
                 required
               />
             )}
+            {mode === "signup" && (
+              <Field label="Mobile" type="tel" value={phone} onChange={setPhone} required />
+            )}
             <Field label="Email" type="email" value={email} onChange={setEmail} required />
             <Field
               label="Password"
@@ -176,18 +152,6 @@ function AuthPage() {
               {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
             </button>
           </form>
-
-          <div className="my-4 flex items-center gap-3 text-xs uppercase tracking-wider text-white/40">
-            <div className="h-px flex-1 bg-white/10" /> or <div className="h-px flex-1 bg-white/10" />
-          </div>
-
-          <button
-            type="button"
-            onClick={onGoogle}
-            className="w-full rounded-full border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-          >
-            Continue with Google
-          </button>
 
           <div className="mt-5 text-center text-sm text-white/60">
             {mode === "signin" ? (

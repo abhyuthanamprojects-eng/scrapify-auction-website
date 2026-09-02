@@ -3,12 +3,26 @@ import { useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { VendorStatusBanner } from "@/components/vendor-status-banner";
 import { useAuth } from "@/hooks/use-auth";
-import { useFlow } from "@/hooks/use-flow";
-import { getLot, formatINR } from "@/lib/mock-lots";
+import { api } from "@/lib/api-client";
+import { getAuctions, formatINR, type Lot } from "@/lib/auction-data";
 import { EMD_LABEL } from "@/lib/customer-flow";
 import { Gavel, Wallet, ClipboardList, Heart } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
+  loader: async () => {
+    const [bids, emd, wallet, auctions] = await Promise.all([
+      api.getMyBids().catch(() => ({ data: { active: [], won: [], lost: [] } })),
+      api.getEmd().catch(() => ({ data: [] })),
+      api.getWallet().catch(() => ({ data: { balance_inr: 0 } })),
+      getAuctions({ per_page: "100" }).catch(() => []),
+    ]);
+    return {
+      bids: bids.data ?? bids,
+      emdRows: Array.isArray(emd.data) ? emd.data : [],
+      wallet: wallet.data ?? wallet,
+      auctions,
+    };
+  },
   head: () => ({
     meta: [
       { title: "Buyer dashboard — Scrapify Auction" },
@@ -25,24 +39,31 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function BuyerDashboard() {
   const { loading, primaryRole, user } = useAuth();
-  const flow = useFlow();
+  const { bids, emdRows, auctions } = Route.useLoaderData() as {
+    bids: { active?: any[]; won?: any[]; lost?: any[] };
+    emdRows: any[];
+    wallet: any;
+    auctions: Lot[];
+  };
   const [tab, setTab] = useState<"registered" | "live" | "won" | "watch">("registered");
 
-  const parts = Object.values(flow.participation);
-  const emdBlocked = parts
-    .filter((p) => p.emd === "confirmed")
-    .reduce((s2, p) => s2 + (getLot(p.lotId)?.emd ?? 0), 0);
-  const activeBids = Object.keys(flow.myBids).length;
-  const wonIds = Object.keys(flow.payments);
-
-  const ids =
-    tab === "watch"
-      ? flow.watch
-      : tab === "won"
-        ? wonIds
-        : tab === "live"
-          ? parts.filter((p) => getLot(p.lotId)?.status === "live").map((p) => p.lotId)
-          : parts.map((p) => p.lotId);
+  const activeBidRows = bids.active ?? [];
+  const wonRows = bids.won ?? [];
+  const registeredCodes = new Set([
+    ...activeBidRows.map((bid) => String(bid.auction_code ?? bid.auction?.code ?? "")),
+    ...emdRows.map((row) => String(row.auction_code ?? row.auction?.code ?? "")),
+  ]);
+  const lots =
+    tab === "won"
+      ? auctions.filter((lot) => wonRows.some((bid) => String(bid.auction_code ?? bid.auction?.code) === lot.id))
+      : tab === "live"
+        ? auctions.filter((lot) => registeredCodes.has(lot.id) && lot.status === "live")
+        : tab === "watch"
+          ? auctions.filter((lot) => Boolean((lot as any).interested))
+          : auctions.filter((lot) => registeredCodes.has(lot.id));
+  const emdBlocked = emdRows
+    .filter((row) => ["confirmed", "held", "locked"].includes(String(row.status ?? row.state)))
+    .reduce((s2, row) => s2 + Number(row.amount_inr ?? row.amount ?? 0), 0);
 
   if (loading) return <FullPageLoading />;
   if (primaryRole === "seller") return <Navigate to="/seller" />;
@@ -73,9 +94,9 @@ function BuyerDashboard() {
         </div>
 
         <div className="mt-8 grid gap-5 sm:grid-cols-3">
-          <Stat icon={Gavel} label="Active bids" value={String(activeBids)} />
+          <Stat icon={Gavel} label="Active bids" value={String(activeBidRows.length)} />
           <Stat icon={Wallet} label="EMD blocked" value={formatINR(emdBlocked)} />
-          <Stat icon={ClipboardList} label="Won lots" value={String(wonIds.length)} />
+          <Stat icon={ClipboardList} label="Won lots" value={String(wonRows.length)} />
         </div>
 
         <div className="mt-10 inline-flex flex-wrap rounded-full border border-border bg-card p-1">
@@ -99,7 +120,7 @@ function BuyerDashboard() {
           ))}
         </div>
 
-        {ids.length === 0 ? (
+        {lots.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
             <Heart className="mx-auto h-6 w-6 text-muted-foreground" />
             <p className="mt-2 text-sm text-muted-foreground">
@@ -108,12 +129,11 @@ function BuyerDashboard() {
           </div>
         ) : (
           <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {ids.map((id) => {
-              const lot = getLot(id);
-              if (!lot) return null;
-              const p = flow.participation[id];
+            {lots.map((lot) => {
+              const emd = emdRows.find((row) => String(row.auction_code ?? row.auction?.code) === lot.id);
+              const myBid = activeBidRows.find((bid) => String(bid.auction_code ?? bid.auction?.code) === lot.id);
               return (
-                <div key={id} className="rounded-2xl border border-border bg-card p-5">
+                <div key={lot.id} className="rounded-2xl border border-border bg-card p-5">
                   <div className="text-xs uppercase tracking-wider text-muted-foreground">
                     {lot.id} · {lot.status}
                   </div>
@@ -121,25 +141,25 @@ function BuyerDashboard() {
                     {lot.title}
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    EMD {formatINR(lot.emd)} · {EMD_LABEL[p?.emd ?? "not_paid"]}
+                    EMD {formatINR(lot.emd)} · {EMD_LABEL[(emd?.status ?? "not_paid") as keyof typeof EMD_LABEL] ?? String(emd?.status ?? "Not paid")}
                   </p>
-                  {flow.myBids[id] && (
+                  {myBid && (
                     <p className="mt-1 text-sm font-semibold text-foreground">
-                      My bid {formatINR(flow.myBids[id])}
+                      My bid {formatINR(Number(myBid.amount_inr ?? myBid.amount ?? 0))}
                     </p>
                   )}
                   <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
                     <Link
                       to="/lots/$id"
-                      params={{ id }}
+                      params={{ id: lot.id }}
                       className="rounded-full border border-border px-3 py-1.5 hover:border-[color:var(--auction)]"
                     >
                       Lot details
                     </Link>
                     {lot.status === "live" && (
                       <Link
-                        to="/live/$id"
-                        params={{ id }}
+                      to="/live/$id"
+                        params={{ id: lot.id }}
                         className="rounded-full bg-[color:var(--auction)] px-3 py-1.5 text-white"
                       >
                         Bidding room
@@ -147,7 +167,7 @@ function BuyerDashboard() {
                     )}
                     <Link
                       to="/results/$id"
-                      params={{ id }}
+                      params={{ id: lot.id }}
                       className="rounded-full border border-border px-3 py-1.5 hover:border-[color:var(--auction)]"
                     >
                       Result

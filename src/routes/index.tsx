@@ -3,11 +3,15 @@ import { useEffect, useMemo, useState } from "react";
 import { ShieldCheck, Gavel, Truck, Scale, TrendingUp, Factory, Search, X, MapPin, Clock } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { LotCard } from "@/components/lot-card";
-import { LOTS, CATEGORIES, formatINR, type Lot } from "@/lib/mock-lots";
+import { formatINR, getAuctions, getCategories, type Lot } from "@/lib/auction-data";
 import { useRegistration } from "@/hooks/use-registration";
 import heroImg from "@/assets/hero-scrapyard.jpg";
 
 export const Route = createFileRoute("/")({
+  loader: async () => {
+    const [lots, categories] = await Promise.all([getAuctions(), getCategories()]);
+    return { lots, categories };
+  },
   head: () => ({
     meta: [
       { title: "Scrapify Auctions — Multi-Category Auction & Sourcing Platform" },
@@ -30,6 +34,7 @@ export const Route = createFileRoute("/")({
 type Segment = "live" | "upcoming" | "ended";
 
 function Marketplace() {
+  const { lots, categories } = Route.useLoaderData();
   const [segment, setSegment] = useState<Segment>("live");
   const [category, setCategory] = useState<string>("All");
   const [query, setQuery] = useState("");
@@ -39,12 +44,12 @@ function Marketplace() {
   const pending = state.paymentSubmitted && !state.approved;
 
   const locations = useMemo(
-    () => ["All", ...Array.from(new Set(LOTS.map((l) => l.location)))],
-    [],
+    () => ["All", ...Array.from(new Set(lots.map((l) => l.location).filter(Boolean)))],
+    [lots],
   );
 
   const filtered = useMemo(() => {
-    return LOTS.filter(
+    return lots.filter(
       (l) =>
         l.status === segment &&
         (category === "All" || l.category === category) &&
@@ -54,10 +59,10 @@ function Marketplace() {
           l.id.toLowerCase().includes(query.toLowerCase()) ||
           l.seller.toLowerCase().includes(query.toLowerCase())),
     );
-  }, [segment, category, location, query]);
+  }, [lots, segment, category, location, query]);
 
-  const liveCount = LOTS.filter((l) => l.status === "live").length;
-  const totalGmv = LOTS.reduce((s, l) => s + l.currentBid, 0);
+  const liveCount = lots.filter((l) => l.status === "live").length;
+  const totalGmv = lots.reduce((s, l) => s + l.currentBid, 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -201,7 +206,7 @@ function Marketplace() {
             onChange={(e) => setCategory(e.target.value)}
             className="rounded-full border border-border bg-background px-3 py-2 text-sm outline-none"
           >
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <option key={c} value={c}>
                 {c === "All" ? "All categories" : c}
               </option>
@@ -222,7 +227,7 @@ function Marketplace() {
 
         {/* Category chips */}
         <div className="mt-6 flex flex-wrap gap-2">
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <button
               key={c}
               onClick={() => setCategory(c)}
@@ -326,7 +331,7 @@ function CatalogueDrawer({ lot, onClose }: { lot: Lot; onClose: () => void }) {
     };
   }, [onClose]);
 
-  const startsAt = lot.endsAt - 7 * 24 * 60 * 60 * 1000;
+  const startsAt = lot.startsAt;
   const fmt = (ms: number) =>
     new Date(ms).toLocaleString("en-IN", {
       day: "2-digit",

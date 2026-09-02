@@ -1,64 +1,64 @@
-import { useEffect, useState } from "react";
-import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api-client';
 
-export type AppRole = "buyer" | "seller" | "admin";
+export type AppRole = 'buyer' | 'seller' | 'admin';
+export type AppUser = {
+  id?: string | number;
+  email?: string;
+  name?: string;
+  role?: AppRole;
+  roles?: AppRole[];
+  user_metadata?: { full_name?: string };
+};
 
 export interface AuthState {
   loading: boolean;
-  session: Session | null;
-  user: User | null;
+  user: AppUser | null;
   roles: AppRole[];
   primaryRole: AppRole | null;
 }
 
 export function useAuth(): AuthState {
-  const [session, setSession] = useState<Session | null>(null);
-  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-
-    const loadRoles = async (userId: string | undefined) => {
-      if (!userId) {
-        if (active) setRoles([]);
+    const load = async () => {
+      if (!api.getToken()) {
+        if (active) {
+          setUser(null);
+          setLoading(false);
+        }
         return;
       }
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId);
-      if (active) setRoles((data ?? []).map((r: { role: AppRole }) => r.role));
-    };
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      // defer role fetch to avoid deadlocks in the callback
-      setTimeout(() => loadRoles(s?.user?.id), 0);
-    });
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      loadRoles(data.session?.user?.id).finally(() => {
+      try {
+        const response = await api.me();
+        const next = (response.user ?? response.data?.user ?? null) as AppUser | null;
+        if (active) setUser(next);
+      } catch {
+        api.setToken(null);
+        if (active) setUser(null);
+      } finally {
         if (active) setLoading(false);
-      });
-    });
-
+      }
+    };
+    void load();
+    window.addEventListener('scrapify:auth', load);
     return () => {
       active = false;
-      sub.subscription.unsubscribe();
+      window.removeEventListener('scrapify:auth', load);
     };
   }, []);
 
-  const primaryRole: AppRole | null = roles.includes("admin")
-    ? "admin"
-    : roles.includes("seller")
-      ? "seller"
-      : roles.includes("buyer")
-        ? "buyer"
+  const roles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
+  const primaryRole: AppRole | null = roles.includes('admin')
+    ? 'admin'
+    : roles.includes('seller')
+      ? 'seller'
+      : roles.includes('buyer')
+        ? 'buyer'
         : null;
 
-  return { loading, session, user: session?.user ?? null, roles, primaryRole };
+  return { loading, user, roles, primaryRole };
 }

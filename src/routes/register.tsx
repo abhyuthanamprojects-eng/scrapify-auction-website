@@ -1,3 +1,5 @@
+"use client";
+
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -18,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import type { RegistrationState, WizardStep } from "@/lib/registration-store";
 import { clearRegistration, MATERIALS } from "@/lib/registration-store";
+import { api } from "@/lib/api-client";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -48,6 +51,12 @@ const STEPS: { n: WizardStep; label: string; blurb: string }[] = [
 function RegisterWizard() {
   const { state, update } = useRegistration();
   const step = state.step;
+  const [hydrated, setHydrated] = useState(false);
+
+  // Ensure hydration completes before rendering step-dependent content
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   // Google sign-up returns here: mark verification + login steps done and
   // continue with the remaining KYC steps.
@@ -88,7 +97,7 @@ function RegisterWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" suppressHydrationWarning>
       <header className="border-b border-border bg-[color:var(--navy)] text-white">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2 font-display text-lg font-bold">
@@ -97,7 +106,7 @@ function RegisterWizard() {
             </span>
             Scrapify<span className="text-[color:var(--gold-soft)]">Auction</span>
           </Link>
-          <div className="text-xs uppercase tracking-wider text-white/70">
+          <div className="text-xs uppercase tracking-wider text-white/70" suppressHydrationWarning>
             Step {step} of 4
           </div>
         </div>
@@ -133,7 +142,7 @@ function RegisterWizard() {
           </div>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]" suppressHydrationWarning>
           {/* Left: vertical stepper (desktop) */}
           <aside className="hidden lg:block">
             <div className="card-soft sticky top-6 p-6">
@@ -195,11 +204,16 @@ function RegisterWizard() {
           </aside>
 
           {/* Right: current step form */}
-          <div className="mx-auto w-full max-w-[640px] lg:mx-0">
-            {step === 1 && <Step1 state={state} update={update} />}
-            {step === 2 && <Step2 state={state} update={update} />}
-            {step === 3 && <Step3 state={state} update={update} />}
-            {step === 4 && <Step4 state={state} update={update} />}
+          <div className="mx-auto w-full max-w-[640px] lg:mx-0" suppressHydrationWarning>
+            {hydrated && (
+              <>
+                {step === 1 && <Step1 state={state} update={update} />}
+                {step === 2 && <Step2 state={state} update={update} />}
+                {step === 3 && <Step3 state={state} update={update} />}
+                {step === 4 && <Step4 state={state} update={update} />}
+              </>
+            )}
+            {!hydrated && <Step1 state={state} update={update} />}
           </div>
         </div>
       </div>
@@ -255,24 +269,33 @@ function Step1({
     }
   };
 
-  const sendOtp = () => {
+  const sendOtp = async () => {
     setError(null);
     if (!validMobile) return setError("Enter a valid 10-digit mobile number.");
     if (!validEmail) return setError("Enter a valid email address.");
-    update({ mobile, email });
-    setOtpSent(true);
-    setResendIn(30);
+    try {
+      await api.requestOtp(email, "register");
+      update({ mobile, email });
+      setOtpSent(true);
+      setResendIn(30);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not send OTP.");
+    }
   };
 
-  const verify = () => {
+  const verify = async () => {
     setError(null);
-    // Mock: any 6-digit OTP works; hint value 123456
     if (!/^\d{4,6}$/.test(otp)) return setError("Enter the 4–6 digit code sent to you.");
-    update({
-      otpVerified: true,
-      completed: { ...state.completed, 1: true },
-      step: 2,
-    });
+    try {
+      await api.verifyOtp(email, otp);
+      update({
+        otpVerified: true,
+        completed: { ...state.completed, 1: true },
+        step: 2,
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "OTP verification failed.");
+    }
   };
 
   return (
@@ -308,7 +331,7 @@ function Step1({
       ) : (
         <>
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
-            OTP sent to <b>{mobile}</b> and <b>{email}</b>. Use <b>123456</b> for demo.
+            OTP sent to <b>{email}</b>. Enter the code before it expires.
           </div>
           <Field
             label="Enter OTP"
@@ -323,7 +346,7 @@ function Step1({
               type="button"
               className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground disabled:no-underline"
               disabled={resendIn > 0}
-              onClick={() => setResendIn(30)}
+              onClick={sendOtp}
             >
               {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend OTP"}
             </button>
@@ -374,6 +397,8 @@ function Step2({
   const [confirm, setConfirm] = useState(state.confirmPassword);
   const [showA, setShowA] = useState(false);
   const [showB, setShowB] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const username = state.email || state.mobile;
 
@@ -382,14 +407,32 @@ function Step2({
   const strong = strength.score >= 2;
   const canContinue = matches && strong;
 
-  const submit = () => {
+  const submit = async () => {
     if (!canContinue) return;
-    update({
-      password,
-      confirmPassword: confirm,
-      completed: { ...state.completed, 2: true },
-      step: 3,
-    });
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await api.register({
+        name: state.email.split("@")[0] || state.mobile,
+        email: state.email,
+        phone: state.mobile,
+        password,
+        role: "buyer",
+      });
+      const vendorCode = response.user?.vendor?.id ?? "";
+      update({
+        password: "",
+        confirmPassword: "",
+        vendorCode,
+        completed: { ...state.completed, 2: true },
+        step: 3,
+      });
+      window.dispatchEvent(new CustomEvent("scrapify:auth"));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Account could not be created.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -453,13 +496,14 @@ function Step2({
       {confirm.length > 0 && !matches && (
         <ErrorLine>Passwords do not match.</ErrorLine>
       )}
+      {error && <ErrorLine>{error}</ErrorLine>}
 
       <div className="flex items-center gap-3">
         <SecondaryButton onClick={() => update({ step: 1 })}>
           <ChevronLeft className="h-4 w-4" /> Back
         </SecondaryButton>
-        <PrimaryButton onClick={submit} disabled={!canContinue}>
-          Save & Continue
+        <PrimaryButton onClick={submit} disabled={!canContinue || busy}>
+          {busy ? "Creating account…" : "Save & Continue"}
         </PrimaryButton>
       </div>
     </FormShell>
@@ -536,12 +580,14 @@ function Step3({
     bankIfsc: state.bankIfsc,
     bankName: state.bankName,
   });
-  const [gstFile, setGstFile] = useState<string | null>(state.gstFile);
-  const [panFile, setPanFile] = useState<string | null>(state.panFile);
-  const [chequeFile, setChequeFile] = useState<string | null>(state.chequeFile);
-  const [licenseFile, setLicenseFile] = useState<string | null>(state.licenseFile);
+  const [gstFile, setGstFile] = useState<File | null>(null);
+  const [panFile, setPanFile] = useState<File | null>(null);
+  const [chequeFile, setChequeFile] = useState<File | null>(null);
+  const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [materials, setMaterials] = useState<string[]>(state.materialInterest);
   const [terms, setTerms] = useState(state.termsAccepted);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const set = (k: keyof typeof f) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const toggleMaterial = (m: string) =>
@@ -556,19 +602,48 @@ function Step3({
     materials.length > 0 &&
     terms;
 
-  const submit = () => {
+  const submit = async () => {
     if (!allFilled) return;
-    update({
-      ...f,
-      gstFile,
-      panFile,
-      chequeFile,
-      licenseFile,
-      materialInterest: materials,
-      termsAccepted: terms,
-      completed: { ...state.completed, 3: true },
-      step: 4,
-    });
+    setBusy(true);
+    setError(null);
+    try {
+      const vendorResponse = await api.registerVendor({
+        company_name: f.companyName,
+        address: f.registeredAddress,
+        contact_name: f.contactName,
+        email: f.contactEmail,
+        phone: f.contactMobile,
+        gst_number: f.gstNumber,
+        pan_number: f.panNumber,
+        license_number: f.licenseNumber,
+        material_interest: materials,
+        terms_accepted: terms,
+      });
+      const vendorCode = vendorResponse.data?.code ?? vendorResponse.code ?? vendorResponse.id ?? state.vendorCode;
+      if (!vendorCode) throw new Error("Vendor code missing from registration response.");
+      await Promise.all([
+        api.uploadVendorDocument(vendorCode, "license", "License", licenseFile!),
+        api.uploadVendorDocument(vendorCode, "gst", "GST Certificate", gstFile!),
+        api.uploadVendorDocument(vendorCode, "pan", "PAN Card", panFile!),
+        api.uploadVendorDocument(vendorCode, "bank", "Cancelled Cheque", chequeFile!),
+      ]);
+      update({
+        ...f,
+        vendorCode,
+        gstFile: gstFile!.name,
+        panFile: panFile!.name,
+        chequeFile: chequeFile!.name,
+        licenseFile: licenseFile!.name,
+        materialInterest: materials,
+        termsAccepted: terms,
+        completed: { ...state.completed, 3: true },
+        step: 4,
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Company registration failed.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -703,10 +778,11 @@ function Step3({
         <SecondaryButton onClick={() => update({ step: 2 })}>
           <ChevronLeft className="h-4 w-4" /> Back
         </SecondaryButton>
-        <PrimaryButton onClick={submit} disabled={!allFilled}>
-          Continue
+        <PrimaryButton onClick={submit} disabled={!allFilled || busy}>
+          {busy ? "Uploading…" : "Continue"}
         </PrimaryButton>
       </div>
+      {error && <ErrorLine>{error}</ErrorLine>}
     </FormShell>
   );
 }
@@ -717,15 +793,15 @@ function DropTile({
   onFile,
 }: {
   label: string;
-  file: string | null;
-  onFile: (name: string | null) => void;
+  file: File | null;
+  onFile: (file: File | null) => void;
 }) {
   const [drag, setDrag] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
 
   const handle = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    onFile(files[0].name);
+    onFile(files[0]);
   };
 
   return (
@@ -757,7 +833,7 @@ function DropTile({
       <div className="min-w-0 flex-1">
         <div className="text-sm font-semibold text-foreground">{label}</div>
         <div className="truncate text-xs text-muted-foreground">
-          {file ?? "Drag & drop or click to upload (PDF, JPG, PNG)"}
+          {file?.name ?? "Drag & drop or click to upload (PDF, JPG, PNG)"}
         </div>
       </div>
       {file && (
@@ -809,6 +885,45 @@ function Step4({
   const [method, setMethod] = useState<RegistrationState["paymentMethod"]>(
     state.paymentMethod,
   );
+  const [paymentReference, setPaymentReference] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [registrationFee, setRegistrationFee] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (phase !== "pending" || !api.getToken()) return;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const response = await api.me();
+        const vendor = response.user?.vendor;
+        if (!active || !vendor?.status) return;
+        if (["approved", "rejected", "suspended"].includes(vendor.status)) {
+          const next = vendor.status as "approved" | "rejected" | "suspended";
+          update({
+            approved: next === "approved",
+            vendorStatus: next,
+            statusReason: vendor.rejection_reason ?? vendor.suspension_reason ?? "",
+          });
+          setPhase(next);
+        }
+      } catch {
+        // Keep the persisted pending state; the next poll will retry.
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 30000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [phase, update]);
+
+  useEffect(() => {
+    api.getPlatformConfig()
+      .then((config) => setRegistrationFee(config.vendor_registration_fee))
+      .catch(() => setRegistrationFee(null));
+  }, []);
 
   const rows: [string, string, WizardStep][] = [
     ["Mobile", state.mobile, 1],
@@ -907,28 +1022,49 @@ function Step4({
         </div>
 
         <div className="rounded-xl bg-muted p-4 text-sm text-foreground">
-          Amount payable: <b className="font-display">₹5,000</b> (one-time,
+          Amount payable: <b className="font-display">{registrationFee == null ? "Loading…" : `₹${registrationFee.toLocaleString("en-IN")}`}</b> (one-time,
           non-refundable KYC processing fee).
         </div>
+
+        <Field
+          label="Payment reference / UTR"
+          value={paymentReference}
+          onChange={setPaymentReference}
+          placeholder="Enter bank or UPI reference"
+        />
+        {error && <ErrorLine>{error}</ErrorLine>}
 
         <div className="flex items-center gap-3">
           <SecondaryButton onClick={() => setPhase("review")}>
             <ChevronLeft className="h-4 w-4" /> Back
           </SecondaryButton>
           <PrimaryButton
-            onClick={() => {
-              update({
-                paymentMethod: method,
-                paymentSubmitted: true,
-                vendorStatus: "pending",
-                statusReason: "",
-                completed: { ...state.completed, 4: true },
-              });
-              setPhase("pending");
+            onClick={async () => {
+              if (!method || !paymentReference.trim() || !state.vendorCode) return;
+              setBusy(true);
+              setError(null);
+              try {
+                await api.submitVendorPayment(state.vendorCode, {
+                  method,
+                  reference: paymentReference.trim(),
+                });
+                update({
+                  paymentMethod: method,
+                  paymentSubmitted: true,
+                  vendorStatus: "pending",
+                  statusReason: "",
+                  completed: { ...state.completed, 4: true },
+                });
+                setPhase("pending");
+              } catch (cause) {
+                setError(cause instanceof Error ? cause.message : "Payment could not be submitted.");
+              } finally {
+                setBusy(false);
+              }
             }}
-            disabled={!method}
+            disabled={!method || !paymentReference.trim() || busy}
           >
-            Submit payment
+            {busy ? "Submitting…" : "Submit payment"}
           </PrimaryButton>
         </div>
       </FormShell>
@@ -949,40 +1085,6 @@ function Step4({
             Bidding is <b>locked</b> until an admin approves your account. This banner
             will stay on your profile until approval.
           </p>
-        </div>
-
-        <div className="rounded-xl border border-dashed border-border p-4 text-xs text-muted-foreground">
-          <div className="font-semibold uppercase tracking-wider">Demo control</div>
-          <p className="mt-1">
-            No live admin panel connected yet — simulate the admin decision that drives
-            this screen.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                update({ approved: true, vendorStatus: "approved", statusReason: "" });
-                setPhase("approved");
-              }}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold text-foreground hover:border-[color:var(--auction)]"
-            >
-              <ShieldCheck className="h-3.5 w-3.5" /> Approve
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                update({
-                  approved: false,
-                  vendorStatus: "rejected",
-                  statusReason: "PAN card image unreadable — please re-upload a clear scan.",
-                });
-                setPhase("rejected");
-              }}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold text-foreground hover:border-destructive"
-            >
-              Reject with reason
-            </button>
-          </div>
         </div>
 
         <SecondaryButton onClick={() => navigate({ to: "/" })}>

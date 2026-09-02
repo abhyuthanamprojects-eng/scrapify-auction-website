@@ -10,19 +10,18 @@ import {
   CircleDollarSign,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
-import { getLot, formatINR, type Lot } from "@/lib/mock-lots";
+import { getLot, formatINR, type Lot } from "@/lib/auction-data";
 import { useFlow } from "@/hooks/use-flow";
 import {
   EMD_LABEL,
   payableSummary,
-  refundEmd,
   scheduleLifting,
   submitPayment,
 } from "@/lib/customer-flow";
 
 export const Route = createFileRoute("/results/$id")({
-  loader: ({ params }) => {
-    const lot = getLot(params.id);
+  loader: async ({ params }) => {
+    const lot = await getLot(params.id).catch(() => null);
     if (!lot) throw notFound();
     return { lot };
   },
@@ -242,18 +241,9 @@ function ResultPage() {
             </ol>
             {participation && (
               <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                <button
-                  onClick={() => refundEmd(lot, "refund_initiated")}
-                  className="rounded-full border border-border px-3 py-1.5 font-semibold hover:border-[color:var(--auction)]"
-                >
-                  Simulate refund initiated
-                </button>
-                <button
-                  onClick={() => refundEmd(lot, "refunded")}
-                  className="rounded-full border border-border px-3 py-1.5 font-semibold hover:border-emerald-600"
-                >
-                  Simulate credited
-                </button>
+                <span className="rounded-full border border-border px-3 py-1.5 font-semibold text-muted-foreground">
+                  Refund status is updated by finance
+                </span>
               </div>
             )}
           </section>

@@ -1,11 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Eye, Gavel, Link2Off, TimerOff } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
-import { LOTS, formatINR } from "@/lib/mock-lots";
+import { api } from "@/lib/api-client";
+import { formatINR, toLot, type Lot } from "@/lib/auction-data";
 import { lotType } from "@/lib/customer-flow";
 
 /** Token links issued by the auctioneer: /join/<lotId>-<view|bid>[-expired|-revoked] */
 export const Route = createFileRoute("/join/$token")({
+  loader: async ({ params }) => {
+    const response = await api.validateToken(params.token);
+    const data = response.data ?? response;
+    return {
+      status: String(data.status ?? "active"),
+      access: String(data.access ?? data.mode ?? "view"),
+      lot: toLot(data.auction ?? data.lot ?? data),
+    };
+  },
   head: () => ({
     meta: [
       { title: "Auction invite — Scrapify Auction" },
@@ -23,13 +33,14 @@ export const Route = createFileRoute("/join/$token")({
 });
 
 function JoinToken() {
-  const { token } = Route.useParams();
-  const parts = token.split("-");
-  const flag = parts[parts.length - 1];
+  const { status, access: tokenAccess, lot } = Route.useLoaderData() as {
+    status: string;
+    access: string;
+    lot: Lot;
+  };
   const state =
-    flag === "expired" ? "Expired" : flag === "revoked" ? "Revoked" : "Active";
-  const access = token.includes("bid") ? "Can Bid" : "View Only";
-  const lot = LOTS.find((l) => token.toUpperCase().includes(l.id)) ?? LOTS[0];
+    status === "expired" ? "Expired" : status === "revoked" ? "Revoked" : "Active";
+  const access = tokenAccess === "bid" || tokenAccess === "can_bid" ? "Can Bid" : "View Only";
 
   return (
     <div className="min-h-screen bg-background">

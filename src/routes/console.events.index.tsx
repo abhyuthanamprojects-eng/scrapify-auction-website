@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
-  EVENTS,
   FORMAT_LABEL,
   STATE_LABEL,
   cr,
@@ -9,10 +8,12 @@ import {
   timeLeft,
   type EventState,
 } from "@/lib/enterprise";
+import { loadEvents } from "@/lib/enterprise-api";
 import { Card, PageHead, StateBadge, Table, Pill } from "@/components/console/shell";
 import { useTick } from "@/hooks/use-tick";
 
 export const Route = createFileRoute("/console/events/")({
+  loader: () => loadEvents(),
   head: () => ({
     meta: [
       { title: "Sourcing Events — Auctions, RFx & Negotiations" },
@@ -44,12 +45,13 @@ const GROUPS: { key: "all" | EventState; label: string }[] = [
 
 function EventsList() {
   useTick(1000);
+  const events = Route.useLoaderData();
   const now = Date.now();
   const [group, setGroup] = useState<"all" | EventState>("all");
   const [dir, setDir] = useState<"all" | "forward" | "reverse">("all");
   const [q, setQ] = useState("");
 
-  const rows = EVENTS.filter(
+  const rows = events.filter(
     (e) =>
       (group === "all" || e.state === group) &&
       (dir === "all" || e.direction === dir) &&
@@ -161,7 +163,7 @@ function EventsList() {
         {(["draft", "live", "awarded"] as EventState[]).map((s) => (
           <Card key={s} title={STATE_LABEL[s]}>
             <p className="font-display text-3xl font-bold">
-              {EVENTS.filter((e) => e.state === s).length}
+              {events.filter((e) => e.state === s).length}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {s === "draft"
