@@ -1,5 +1,7 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { Gavel, ShieldCheck, Store, PackageCheck, FileText, Award } from "lucide-react";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api-client";
 
 export const Route = createFileRoute("/portal")({
   component: PortalLayout,
@@ -7,6 +9,13 @@ export const Route = createFileRoute("/portal")({
 
 function PortalLayout() {
   const { pathname } = useLocation();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    api.me().then((res) => {
+      setUser(res?.user ?? res?.data?.user);
+    }).catch(() => {});
+  }, []);
 
   const VENDOR_NAV = [
     { to: "/portal", label: "My Invitations & Bids", exact: true },
@@ -14,6 +23,9 @@ function PortalLayout() {
     { to: "/portal/documents", label: "Document Vault" },
     { to: "/portal/performance", label: "Scorecard & Tier" },
   ];
+
+  const companyName = user?.vendor?.company_name || user?.organization?.name || user?.name || "Vendor Workspace";
+  const isVerified = user?.vendor?.status === "approved" || user?.role === "admin";
 
   return (
     <div className="min-h-screen bg-background">
@@ -32,8 +44,8 @@ function PortalLayout() {
           </Link>
 
           <span className="ml-auto hidden items-center gap-1.5 text-xs text-white/80 sm:flex bg-white/10 px-3 py-1 rounded-full">
-            <ShieldCheck className="h-3.5 w-3.5 text-[color:var(--success)]" />
-            Meridian Metals Pvt Ltd • Platinum Tier
+            <ShieldCheck className={`h-3.5 w-3.5 ${isVerified ? "text-[color:var(--success)]" : "text-[color:var(--gold-soft)]"}`} />
+            {companyName} {isVerified ? "• Verified Tier" : "• Pending Review"}
           </span>
 
           <Link
