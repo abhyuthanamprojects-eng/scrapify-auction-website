@@ -166,6 +166,29 @@ class ScrapifyApiClient {
     return json;
   }
 
+  async saveRegistrationStep(data: Record<string, unknown>) {
+    return this.request<any>("/vendors/save-step", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async submitVendorKyc(vendorCode: string) {
+    return this.request<any>(`/vendors/${vendorCode}/submit-kyc`, {
+      method: "POST",
+    });
+  }
+
+  async resubmitVendorKyc(vendorCode: string) {
+    return this.request<any>(`/vendors/${vendorCode}/resubmit-kyc`, {
+      method: "POST",
+    });
+  }
+
+  async getVendorKycStatus(vendorCode: string) {
+    return this.request<any>(`/vendors/${vendorCode}/kyc-status`);
+  }
+
   async registerVendor(data: Record<string, unknown>) {
     return this.request<any>("/vendors/register", {
       method: "POST",

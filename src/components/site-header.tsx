@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Gavel, Search, Bell, LogOut, LayoutDashboard, Wallet } from "lucide-react";
+import { Search, Bell, LogOut, LayoutDashboard, Wallet } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useFlow } from "@/hooks/use-flow";
 import { api } from "@/lib/api-client";
@@ -22,8 +22,8 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-[color:var(--navy)] text-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2 font-display text-lg font-bold">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--auction)]">
-            <Gavel className="h-5 w-5" />
+          <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg bg-white">
+            <img src="/scrapify-auction-app-icon.png" alt="Scrapify Auctions" className="h-full w-full object-contain" />
           </span>
           Scrapify<span className="text-[color:var(--gold-soft)]">Auctions</span>
         </Link>

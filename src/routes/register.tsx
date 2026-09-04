@@ -99,8 +99,8 @@ function RegisterWizard() {
       <header className="border-b border-border bg-[color:var(--navy)] text-white">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2 font-display text-lg font-bold">
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--auction)]">
-              <Gavel className="h-5 w-5" />
+            <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg bg-white">
+              <img src="/scrapify-auction-app-icon.png" alt="Scrapify Auctions" className="h-full w-full object-contain" />
             </span>
             Scrapify<span className="text-[color:var(--gold-soft)]">Auction</span>
           </Link>

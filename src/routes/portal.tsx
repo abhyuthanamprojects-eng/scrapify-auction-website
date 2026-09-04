@@ -20,8 +20,8 @@ function PortalLayout() {
       <header className="sticky top-0 z-30 border-b border-border bg-[color:var(--navy)] text-white shadow-md">
         <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 py-3.5 sm:px-6">
           <Link to="/portal" className="flex items-center gap-2 font-display text-sm font-bold">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-[color:var(--auction)] shadow-sm">
-              <Gavel className="h-4 w-4 text-white" />
+            <span className="grid h-8 w-8 place-items-center overflow-hidden rounded-lg bg-white shadow-sm">
+              <img src="/scrapify-auction-app-icon.png" alt="Scrapify Portal" className="h-full w-full object-contain" />
             </span>
             <span>
               Scrapify<span className="text-[color:var(--gold-soft)]">Portal</span>

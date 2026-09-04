@@ -101,8 +101,8 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
             to="/console"
             className="flex items-center gap-2 px-5 py-5 font-display text-base font-bold"
           >
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--auction)] text-white shadow-md">
-              <Gavel className="h-5 w-5" />
+            <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg bg-white shadow-md">
+              <img src="/scrapify-auction-app-icon.png" alt="Scrapify Source" className="h-full w-full object-contain" />
             </span>
             <span>
               Scrapify<span className="text-[color:var(--gold-soft)]">Source</span>
