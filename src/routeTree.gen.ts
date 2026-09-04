@@ -18,6 +18,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as ConsoleIndexRouteImport } from './routes/console.index'
 import { Route as ResultsIdRouteImport } from './routes/results.$id'
+import { Route as PortalTeamRouteImport } from './routes/portal.team'
 import { Route as PortalPerformanceRouteImport } from './routes/portal.performance'
 import { Route as PortalOrdersRouteImport } from './routes/portal.orders'
 import { Route as PortalDocumentsRouteImport } from './routes/portal.documents'
@@ -94,6 +95,11 @@ const PortalPerformanceRoute = PortalPerformanceRouteImport.update({
 const PortalOrdersRoute = PortalOrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalTeamRoute = PortalTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalDocumentsRoute = PortalDocumentsRouteImport.update({
@@ -700,6 +706,7 @@ const ConsoleRouteWithChildren =
 interface PortalRouteChildren {
   PortalDocumentsRoute: typeof PortalDocumentsRoute
   PortalOrdersRoute: typeof PortalOrdersRoute
+  PortalTeamRoute: typeof PortalTeamRoute
   PortalPerformanceRoute: typeof PortalPerformanceRoute
   PortalIndexRoute: typeof PortalIndexRoute
   PortalEventsIdRoute: typeof PortalEventsIdRoute
@@ -708,6 +715,7 @@ interface PortalRouteChildren {
 const PortalRouteChildren: PortalRouteChildren = {
   PortalDocumentsRoute: PortalDocumentsRoute,
   PortalOrdersRoute: PortalOrdersRoute,
+  PortalTeamRoute: PortalTeamRoute,
   PortalPerformanceRoute: PortalPerformanceRoute,
   PortalIndexRoute: PortalIndexRoute,
   PortalEventsIdRoute: PortalEventsIdRoute,

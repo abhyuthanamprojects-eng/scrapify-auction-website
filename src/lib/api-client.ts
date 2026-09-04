@@ -484,6 +484,26 @@ class ScrapifyApiClient {
     });
   }
 
+  /* ---------------- Team Members ---------------- */
+  async getTeamMembers(params: Record<string, any> = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request<any>(`/team/members${query ? `?${query}` : ""}`);
+  }
+
+  async addTeamMember(data: any) {
+    return this.request<any>("/team/members", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateTeamMember(id: string | number, data: any) {
+    return this.request<any>(`/team/members/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
   /* ---------------- Reports & Audit ---------------- */
   async getDashboardReports() {
     return this.request<any>("/reports/dashboard");

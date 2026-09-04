@@ -104,8 +104,16 @@ function CreateEventWizard() {
   const [emdAmount, setEmdAmount] = useState("50000");
   // Step 9: Timing
   const [autoExtendMins, setAutoExtendMins] = useState("3");
-  const [startTime, setStartTime] = useState("Tomorrow, 10:00 AM");
-  const [endTime, setEndTime] = useState("Tomorrow, 02:00 PM");
+  const [startTime, setStartTime] = useState(() => {
+    const d = new Date(Date.now() + 24 * 3600 * 1000);
+    d.setMinutes(0, 0, 0);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  });
+  const [endTime, setEndTime] = useState(() => {
+    const d = new Date(Date.now() + 48 * 3600 * 1000);
+    d.setMinutes(0, 0, 0);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  });
   // Step 10: Visibility
   const [rankVisibility, setRankVisibility] = useState<"rank_only" | "price_visible" | "blind">(
     "rank_only",
@@ -607,6 +615,7 @@ function CreateEventWizard() {
                   Auction Start Time
                 </label>
                 <input
+                  type="datetime-local"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-border bg-background p-3"
@@ -617,6 +626,7 @@ function CreateEventWizard() {
                   Auction End Time
                 </label>
                 <input
+                  type="datetime-local"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-border bg-background p-3"
