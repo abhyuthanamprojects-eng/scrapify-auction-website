@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { initScreenProtection } from "@/lib/screen-protection";
 import { supabase as supabaseImport } from "@/integrations/supabase/client";
 import { MobileTabBar } from "@/components/mobile-tabbar";
 
@@ -134,6 +135,10 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+
+  useEffect(() => {
+    initScreenProtection();
+  }, []);
 
   useEffect(() => {
     const { data } = supabaseImport.auth.onAuthStateChange((event) => {
