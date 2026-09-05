@@ -133,6 +133,17 @@ class ScrapifyApiClient {
     return this.request<any>("/auth/me");
   }
 
+  async googleSignIn(idToken: string, phone?: string, role?: string) {
+    const res = await this.request<any>("/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ id_token: idToken, phone, role }),
+    });
+    if (res.token) {
+      this.setToken(res.token);
+    }
+    return res;
+  }
+
   async logout() {
     try {
       await this.request("/auth/logout", { method: "POST" });

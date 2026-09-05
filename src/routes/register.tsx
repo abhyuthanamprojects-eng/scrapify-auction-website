@@ -16,8 +16,8 @@ import {
   Pencil,
 } from "lucide-react";
 import { useRegistration } from "@/hooks/use-registration";
-import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
+import { signInWithPopup } from "firebase/auth";
+import { auth, googleProvider } from "@/lib/firebase";
 import type { RegistrationState, WizardStep } from "@/lib/registration-store";
 import { clearRegistration, MATERIALS } from "@/lib/registration-store";
 import { api } from "@/lib/api-client";
@@ -56,31 +56,6 @@ function RegisterWizard() {
   // Ensure hydration completes before rendering step-dependent content
   useEffect(() => {
     setHydrated(true);
-  }, []);
-
-  // Google sign-up returns here: mark verification + login steps done and
-  // continue with the remaining KYC steps.
-  useEffect(() => {
-    let active = true;
-    const initial = state;
-    if (initial.step > 2) return;
-    supabase.auth.getUser().then(({ data }) => {
-      if (!active || !data.user) return;
-      update({
-        email: data.user.email || initial.email,
-        contactEmail: data.user.email || initial.contactEmail,
-        contactName:
-          initial.contactName || ((data.user.user_metadata?.full_name as string | undefined) ?? ""),
-        otpVerified: true,
-        googleLinked: true,
-        completed: { ...initial.completed, 1: true, 2: true },
-        step: 3,
-      });
-    });
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const goto = (n: WizardStep) => {
@@ -245,23 +220,25 @@ function Step1({
 
   const onGoogle = async () => {
     setError(null);
+    update({ mobile });
     try {
-      update({ mobile });
-      const res = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/register`,
-      });
-      if (res.error) throw res.error;
-      if (res.redirected) return;
-      const { data } = await supabase.auth.getUser();
+      const result = await signInWithPopup(auth, googleProvider);
+      const idToken = await result.user.getIdToken();
+      const res = await api.googleSignIn(idToken, mobile || undefined);
+      const user = res.user;
       update({
-        email: data.user?.email ?? email,
-        contactEmail: data.user?.email ?? email,
+        email: user?.email ?? result.user.email ?? email,
+        contactEmail: user?.email ?? result.user.email ?? email,
+        contactName: user?.name ?? result.user.displayName ?? state.contactName,
         otpVerified: true,
         googleLinked: true,
+        vendorCode: user?.vendor?.id ?? "",
         completed: { ...state.completed, 1: true, 2: true },
         step: 3,
       });
-    } catch (err) {
+      window.dispatchEvent(new CustomEvent("scrapify:auth"));
+    } catch (err: any) {
+      if (err?.code === "auth/popup-closed-by-user") return;
       setError(err instanceof Error ? err.message : "Google sign-up failed");
     }
   };
