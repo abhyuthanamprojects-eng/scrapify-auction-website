@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/lib/api-client";
 
-export const Route = createFileRoute("/portal/team" as any)({
+export const Route = createFileRoute("/portal/team")({
   head: () => ({
     meta: [
       { title: "Team & Authorized Bidders — Scrapify Vendor Portal" },
