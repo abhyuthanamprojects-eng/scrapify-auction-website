@@ -29,6 +29,9 @@ export type RegistrationState = {
   // Step 3
   companyName: string;
   registeredAddress: string;
+  pincode: string;
+  city: string;
+  state: string;
   gstNumber: string;
   panNumber: string;
   licenseNumber: string;
@@ -66,6 +69,9 @@ export const emptyRegistration = (): RegistrationState => ({
   confirmPassword: "",
   companyName: "",
   registeredAddress: "",
+  pincode: "",
+  city: "",
+  state: "",
   gstNumber: "",
   panNumber: "",
   licenseNumber: "",

@@ -565,6 +565,9 @@ function Step3({
   const [f, setF] = useState({
     companyName: state.companyName,
     registeredAddress: state.registeredAddress,
+    pincode: state.pincode,
+    city: state.city,
+    state: state.state,
     gstNumber: state.gstNumber,
     panNumber: state.panNumber,
     licenseNumber: state.licenseNumber,
@@ -575,6 +578,22 @@ function Step3({
     bankIfsc: state.bankIfsc,
     bankName: state.bankName,
   });
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+
+  const onPincodeChange = async (value: string) => {
+    setF((p) => ({ ...p, pincode: value }));
+    if (value.length === 6) {
+      setPincodeLoading(true);
+      try {
+        const result = await api.lookupPincode(value);
+        setF((p) => ({ ...p, city: result.city, state: result.state }));
+      } catch {
+        // User can fill manually
+      } finally {
+        setPincodeLoading(false);
+      }
+    }
+  };
   const [gstFile, setGstFile] = useState<File | null>(null);
   const [panFile, setPanFile] = useState<File | null>(null);
   const [chequeFile, setChequeFile] = useState<File | null>(null);
@@ -605,6 +624,9 @@ function Step3({
       const vendorResponse = await api.registerVendor({
         company_name: f.companyName,
         address: f.registeredAddress,
+        pincode: f.pincode,
+        city: f.city,
+        state: f.state,
         contact_name: f.contactName,
         email: f.contactEmail,
         phone: f.contactMobile,
@@ -654,6 +676,15 @@ function Step3({
           value={f.registeredAddress}
           onChange={set("registeredAddress")}
         />
+        <Field
+          label="PIN Code"
+          value={f.pincode}
+          onChange={onPincodeChange}
+          maxLength={6}
+          placeholder={pincodeLoading ? "Looking up…" : "6-digit PIN code"}
+        />
+        <Field label="City" value={f.city} onChange={set("city")} />
+        <Field label="State" value={f.state} onChange={set("state")} />
         <Field label="GST Number" value={f.gstNumber} onChange={set("gstNumber")} />
         <Field label="PAN Number" value={f.panNumber} onChange={set("panNumber")} />
         <Field label="License Number" value={f.licenseNumber} onChange={set("licenseNumber")} />
