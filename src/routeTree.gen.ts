@@ -9,10 +9,14 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PortalRouteImport } from './routes/portal'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ConsoleRouteImport } from './routes/console'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AccessDeniedRouteImport } from './routes/access-denied'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortalIndexRouteImport } from './routes/portal.index'
@@ -44,14 +48,29 @@ import { Route as PortalEventsIdRouteImport } from './routes/portal.events.$id'
 import { Route as ConsoleEventsNewRouteImport } from './routes/console.events.new'
 import { Route as ConsoleEventsIdRouteImport } from './routes/console.events.$id'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PortalRoute = PortalRouteImport.update({
   id: '/portal',
   path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConsoleRoute = ConsoleRouteImport.update({
@@ -62,6 +81,11 @@ const ConsoleRoute = ConsoleRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccessDeniedRoute = AccessDeniedRouteImport.update({
+  id: '/access-denied',
+  path: '/access-denied',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -218,10 +242,14 @@ const ConsoleEventsIdRoute = ConsoleEventsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/access-denied': typeof AccessDeniedRoute
   '/auth': typeof AuthRoute
   '/console': typeof ConsoleRouteWithChildren
+  '/contact': typeof ContactRoute
   '/portal': typeof PortalRouteWithChildren
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/terms': typeof TermsRoute
   '/business-verification': typeof AuthenticatedBusinessVerificationRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -253,8 +281,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/access-denied': typeof AccessDeniedRoute
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/terms': typeof TermsRoute
   '/business-verification': typeof AuthenticatedBusinessVerificationRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -288,10 +320,14 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/access-denied': typeof AccessDeniedRoute
   '/auth': typeof AuthRoute
   '/console': typeof ConsoleRouteWithChildren
+  '/contact': typeof ContactRoute
   '/portal': typeof PortalRouteWithChildren
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/terms': typeof TermsRoute
   '/_authenticated/business-verification': typeof AuthenticatedBusinessVerificationRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
@@ -325,10 +361,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/access-denied'
     | '/auth'
     | '/console'
+    | '/contact'
     | '/portal'
+    | '/privacy'
     | '/register'
+    | '/terms'
     | '/business-verification'
     | '/dashboard'
     | '/notifications'
@@ -360,8 +400,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/access-denied'
     | '/auth'
+    | '/contact'
+    | '/privacy'
     | '/register'
+    | '/terms'
     | '/business-verification'
     | '/dashboard'
     | '/notifications'
@@ -394,10 +438,14 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/access-denied'
     | '/auth'
     | '/console'
+    | '/contact'
     | '/portal'
+    | '/privacy'
     | '/register'
+    | '/terms'
     | '/_authenticated/business-verification'
     | '/_authenticated/dashboard'
     | '/_authenticated/notifications'
@@ -431,10 +479,14 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AccessDeniedRoute: typeof AccessDeniedRoute
   AuthRoute: typeof AuthRoute
   ConsoleRoute: typeof ConsoleRouteWithChildren
+  ContactRoute: typeof ContactRoute
   PortalRoute: typeof PortalRouteWithChildren
+  PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
+  TermsRoute: typeof TermsRoute
   JoinTokenRoute: typeof JoinTokenRoute
   LiveIdRoute: typeof LiveIdRoute
   LotsIdRoute: typeof LotsIdRoute
@@ -443,6 +495,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
       id: '/register'
       path: '/register'
@@ -450,11 +509,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/portal': {
       id: '/portal'
       path: '/portal'
       fullPath: '/portal'
       preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/console': {
@@ -469,6 +542,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/access-denied': {
+      id: '/access-denied'
+      path: '/access-denied'
+      fullPath: '/access-denied'
+      preLoaderRoute: typeof AccessDeniedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -763,10 +843,14 @@ const PortalRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AccessDeniedRoute: AccessDeniedRoute,
   AuthRoute: AuthRoute,
   ConsoleRoute: ConsoleRouteWithChildren,
+  ContactRoute: ContactRoute,
   PortalRoute: PortalRouteWithChildren,
+  PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
+  TermsRoute: TermsRoute,
   JoinTokenRoute: JoinTokenRoute,
   LiveIdRoute: LiveIdRoute,
   LotsIdRoute: LotsIdRoute,

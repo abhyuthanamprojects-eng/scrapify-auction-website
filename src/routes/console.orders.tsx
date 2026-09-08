@@ -16,6 +16,7 @@ import {
 import { Card, PageHead, Pill, Table, Kpi } from "@/components/console/shell";
 import { inr, cr, type Order } from "@/lib/enterprise";
 import { loadOrders } from "@/lib/enterprise-api";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/console/orders")({
   loader: () => loadOrders(),
@@ -52,7 +53,7 @@ function OrdersPage() {
         actions={
           <div className="flex items-center gap-2">
             <button
-              onClick={() => alert("Downloading Orders Ledger CSV...")}
+              onClick={() => toast.info("Orders export is not available from the API yet.")}
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"
             >
               <Download className="h-4 w-4" />
@@ -245,7 +246,7 @@ function OrdersPage() {
             {/* Actions */}
             <div className="mt-6 flex justify-end gap-2 border-t border-border pt-4">
               <button
-                onClick={() => alert(`Downloading signed contract ${selectedOrder.orderNumber}.pdf`)}
+                onClick={() => toast.info("Signed contract download is not available from the API yet.")}
                 className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"
               >
                 <Download className="h-4 w-4" />

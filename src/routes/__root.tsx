@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { initBrowserSecurity, SecurityGate, SecurityWatermark } from "@/lib/browser-security";
 import { supabase as supabaseImport } from "@/integrations/supabase/client";
 import { MobileTabBar } from "@/components/mobile-tabbar";
+import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
@@ -159,6 +160,7 @@ function RootComponent() {
       </div>
       <SecurityWatermark />
       <MobileTabBar />
+      <Toaster />
     </QueryClientProvider>
     </SecurityGate>
   );

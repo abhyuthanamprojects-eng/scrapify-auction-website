@@ -4,6 +4,7 @@ import { PackageCheck, Truck, Download, QrCode, CheckCircle2, Clock } from "luci
 import { Card, PageHead, Pill, Table, Kpi } from "@/components/console/shell";
 import { cr } from "@/lib/enterprise";
 import { loadOrders } from "@/lib/enterprise-api";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/portal/orders")({
   head: () => ({
@@ -103,7 +104,7 @@ function VendorOrdersPage() {
                 </td>
                 <td className="py-3">
                   <button
-                    onClick={() => alert(`Downloading QR Gate Pass for ${o.orderNumber}`)}
+                    onClick={() => toast.info(`Gate pass for ${o.orderNumber} is not available from the API.`)}
                     className="inline-flex items-center gap-1 rounded-lg bg-[color:var(--navy)] px-3 py-1 text-xs font-bold text-white hover:brightness-110"
                   >
                     <QrCode className="h-3.5 w-3.5" /> Gate Pass

@@ -16,6 +16,7 @@ import {
   FileImage,
 } from "lucide-react";
 import { Card, PageHead, Pill, Table } from "@/components/console/shell";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -244,7 +245,7 @@ function VendorDocumentsPage() {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => {
-                  alert(`Downloading cryptographic copy for ${viewDoc?.name}`);
+                  toast.info("Document download is not available from the API yet.");
                 }}
                 className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--navy)] px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90"
               >

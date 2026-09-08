@@ -1,4 +1,4 @@
-// Enterprise sourcing & auction domain (mock data layer).
+// Enterprise sourcing & auction domain types and formatting helpers.
 // Generic across categories: scrap, e-waste, surplus, machinery, vehicles,
 // raw materials, commodities, logistics lanes, warehousing, facility, manpower,
 // civil works, rentals, IT hardware, professional services, insurance.
@@ -260,7 +260,7 @@ export const EVENTS: AuctionEvent[] = [
     direction: "forward",
     format: "english",
     state: "live",
-    owner: "R. Iyer",
+    owner: "Account owner",
     businessUnit: "Corporate Disposals",
     currency: "INR",
     value: 94_20_000,
@@ -315,9 +315,9 @@ export const EVENTS: AuctionEvent[] = [
       "Lifting within 10 working days of full payment; weighbridge slip final.",
     ],
     audit: [
-      { at: now - 6 * day, actor: "R. Iyer", action: "Event created as draft" },
+      { at: now - 6 * day, actor: "Account owner", action: "Event created as draft" },
       { at: now - 5 * day, actor: "System", action: "Publish validation passed" },
-      { at: now - 5 * day, actor: "R. Iyer", action: "Published to 4 prequalified vendors" },
+      { at: now - 5 * day, actor: "Account owner", action: "Published to prequalified vendors" },
       { at: now - 3 * hr, actor: "System", action: "Event moved to live" },
     ],
     clarifications: [
@@ -328,7 +328,7 @@ export const EVENTS: AuctionEvent[] = [
         category: "Logistics & Site Access",
         at: now - 2 * day,
         answer: "Yes, Gate 4 accommodates up to 40ft hydraulic trailers.",
-        answeredBy: "R. Iyer (Event Owner)",
+        answeredBy: "Account owner",
         status: "published_addendum",
         addendumNo: "ADD-01",
       },
@@ -745,7 +745,7 @@ export type OrgUser = {
 };
 
 export const ORG_USERS: OrgUser[] = [
-  { name: "R. Iyer", email: "r.iyer@scrapify.example", role: "Event owner", bu: "Corporate Disposals", mfa: true, lastActive: now - 20 * min },
+  { name: "Account owner", email: "", role: "Event owner", bu: "", mfa: true, lastActive: now - 20 * min },
   { name: "P. Deshmukh", email: "p.deshmukh@scrapify.example", role: "Event owner", bu: "Supply Chain", mfa: true, lastActive: now - 2 * hr },
   { name: "A. Bhatt", email: "a.bhatt@scrapify.example", role: "Finance", bu: "Corporate Finance", mfa: true, lastActive: now - 40 * min },
   { name: "M. Raghavan", email: "m.raghavan@scrapify.example", role: "Approver", bu: "Executive", mfa: true, lastActive: now - 6 * hr },

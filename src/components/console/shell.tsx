@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { STATE_LABEL, type EventState } from "@/lib/enterprise";
 import { api } from "@/lib/api-client";
+import { useAuth } from "@/hooks/use-auth";
 
 const NAV = [
   { to: "/console", label: "Dashboard", Icon: LayoutDashboard, exact: true },
@@ -39,6 +40,7 @@ const NAV = [
 
 export function ConsoleShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<
@@ -175,9 +177,6 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
                   className="relative grid h-9 w-9 place-items-center rounded-full border border-border text-muted-foreground hover:bg-muted"
                 >
                   <Bell className="h-4 w-4" />
-                  <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--auction)] px-1 text-[10px] font-bold text-white">
-                    3
-                  </span>
                 </button>
 
                 {/* Notifications Flyout */}
@@ -185,29 +184,10 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
                   <div className="absolute right-0 mt-2 w-80 rounded-xl border border-border bg-card p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-center justify-between pb-3 border-b border-border">
                       <span className="font-display text-sm font-bold">Actionable Notices</span>
-                      <span className="text-[11px] text-[color:var(--auction)] font-semibold">
-                        3 Unread
-                      </span>
+                      <span className="text-[11px] text-muted-foreground">Live account notices</span>
                     </div>
-                    <div className="mt-3 space-y-2.5 text-xs">
-                      <div className="rounded-lg bg-muted/60 p-2.5">
-                        <div className="font-semibold text-foreground">Award Approval Required</div>
-                        <p className="text-muted-foreground mt-0.5">
-                          FWD-2026-0341 closed at ₹94.20 L (H1). Awaiting CPO sign-off.
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-muted/60 p-2.5">
-                        <div className="font-semibold text-foreground">Anti-Sniping Triggered</div>
-                        <p className="text-muted-foreground mt-0.5">
-                          REV-2026-0118 extended by 5 mins due to T-3m bid.
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-muted/60 p-2.5">
-                        <div className="font-semibold text-foreground">Gate Pass Generated</div>
-                        <p className="text-muted-foreground mt-0.5">
-                          Vehicle MH-04-AB-1290 checked in at Plot 48 plant yard.
-                        </p>
-                      </div>
+                    <div className="mt-3 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
+                      Notifications are loaded from your account activity. No new notices are available in this session.
                     </div>
                   </div>
                 )}
@@ -216,10 +196,10 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
               {/* User Profile Pill */}
               <div className="hidden items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm sm:flex bg-muted/30">
                 <span className="grid h-6 w-6 place-items-center rounded-full bg-[color:var(--navy)] text-[11px] font-bold text-white">
-                  BP
+                  {(user?.name || user?.email || "U").slice(0, 2).toUpperCase()}
                 </span>
-                <span className="font-medium text-xs">R. Iyer</span>
-                <span className="text-[11px] text-muted-foreground">Admin & Event Owner</span>
+                <span className="font-medium text-xs">{user?.name || user?.email || "Signed-in user"}</span>
+                <span className="text-[11px] text-muted-foreground">Seller workspace</span>
               </div>
             </div>
           </header>

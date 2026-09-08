@@ -3,6 +3,7 @@ import { useState } from "react";
 import { fmtDate } from "@/lib/enterprise";
 import { api } from "@/lib/api-client";
 import { Card, PageHead, Pill } from "@/components/console/shell";
+import { toast } from "sonner";
 import { Download, FileCheck2, Hash, ShieldCheck, Search, Filter } from "lucide-react";
 
 export const Route = createFileRoute("/console/audit")({
@@ -75,7 +76,7 @@ function AuditPage() {
         subtitle="Append-only cryptographic ledger of all sourcing transactions, bid submissions, approvals, extensions, and settlements."
         actions={
           <button
-            onClick={() => alert("Exporting certified SOC2 Compliance Audit Log (PDF & CSV)...")}
+            onClick={() => toast.info("Audit export is not available from the API yet.")}
             className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--navy)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:brightness-110"
           >
             <Download className="h-4 w-4" /> Export Audit Pack

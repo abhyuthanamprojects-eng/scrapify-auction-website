@@ -1,7 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { Home, Gavel, Wallet, Bell, UserPlus } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useFlow } from "@/hooks/use-flow";
 
 /**
  * App-style bottom tab bar for phones. Hidden from md upwards, where the
@@ -9,16 +8,14 @@ import { useFlow } from "@/hooks/use-flow";
  */
 export function MobileTabBar() {
   const { user } = useAuth();
-  const flow = useFlow();
-  const unread = flow.notices.filter((n) => !n.read).length;
   const { pathname } = useLocation();
 
   const tabs = user
     ? [
         { to: "/", label: "Market", Icon: Home },
-        { to: "/dashboard", label: "My bids", Icon: Gavel },
+        { to: user.role === "seller" ? "/console" : "/portal", label: user.role === "seller" ? "Console" : "Portal", Icon: Gavel },
         { to: "/wallet", label: "Wallet", Icon: Wallet },
-        { to: "/notifications", label: "Alerts", Icon: Bell, badge: unread },
+        { to: "/notifications", label: "Alerts", Icon: Bell },
       ]
     : [
         { to: "/", label: "Market", Icon: Home },

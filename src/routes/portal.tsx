@@ -1,21 +1,16 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { Gavel, ShieldCheck, Store, PackageCheck, FileText, Award } from "lucide-react";
-import { useEffect, useState } from "react";
-import { api } from "@/lib/api-client";
+import { requireRole } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/portal")({
+  ssr: false,
+  beforeLoad: ({ location }) => requireRole(location, ["buyer"]),
   component: PortalLayout,
 });
 
 function PortalLayout() {
   const { pathname } = useLocation();
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    api.me().then((res) => {
-      setUser(res?.user ?? res?.data?.user);
-    }).catch(() => {});
-  }, []);
+  const { user } = Route.useRouteContext();
 
   const VENDOR_NAV = [
     { to: "/portal", label: "My Invitations & Bids", exact: true },
@@ -25,8 +20,8 @@ function PortalLayout() {
     { to: "/portal/performance", label: "Scorecard & Tier" },
   ];
 
-  const companyName = user?.vendor?.company_name || user?.organization?.name || user?.name || "Vendor Workspace";
-  const isVerified = user?.vendor?.status === "approved" || user?.role === "admin";
+  const companyName = user?.vendor?.company_name || user?.organization?.name || user?.name || user?.email || "Vendor Workspace";
+  const isVerified = user?.vendor?.status === "approved";
 
   return (
     <div className="min-h-screen bg-background">

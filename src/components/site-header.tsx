@@ -1,14 +1,13 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Search, Bell, LogOut, LayoutDashboard, Wallet } from "lucide-react";
+import { Search, Bell, LogOut, LayoutDashboard, Wallet, Menu, X } from "lucide-react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useFlow } from "@/hooks/use-flow";
 import { api } from "@/lib/api-client";
 
 export function SiteHeader() {
   const { user, primaryRole, loading } = useAuth();
-  const flow = useFlow();
-  const unread = flow.notices.filter((n) => !n.read).length;
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const signOut = async () => {
     await api.logout();
@@ -16,7 +15,12 @@ export function SiteHeader() {
     navigate({ to: "/", replace: true });
   };
 
-  const dashHref = primaryRole === "seller" || primaryRole === "admin" ? "/seller" : "/dashboard";
+  const dashHref = primaryRole === "seller" ? "/console" : "/portal";
+  const nav = user
+    ? primaryRole === "seller"
+      ? [{ to: "/", label: "Marketplace" }, { to: "/console", label: "Enterprise Console" }, { to: "/console/events", label: "Sourcing events" }]
+      : [{ to: "/", label: "Marketplace" }, { to: "/portal", label: "Vendor Portal" }]
+    : [{ to: "/", label: "Marketplace" }];
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-[color:var(--navy)] text-white">
@@ -29,15 +33,9 @@ export function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {[
-            { to: "/", label: "Marketplace" },
-            { to: "/console", label: "Enterprise Console" },
-            { to: "/portal", label: "Vendor Portal" },
-            { to: "/console/events", label: "Events & RFx" },
-            { to: "/console/reports", label: "Analytics" },
-          ].map((n, i) => (
+          {nav.map((n) => (
             <Link
-              key={i}
+              key={n.to}
               to={n.to}
               className="rounded-md px-3 py-1.5 text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
             >
@@ -63,18 +61,7 @@ export function SiteHeader() {
               <Wallet className="h-4 w-4" />
             </Link>
           )}
-          <Link
-            to={user ? "/notifications" : "/register"}
-            aria-label="Notifications"
-            className="relative grid h-9 w-9 place-items-center rounded-full text-white/80 hover:bg-white/10"
-          >
-            <Bell className="h-4 w-4" />
-            {unread > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--auction)] px-1 text-[10px] font-bold text-white">
-                {unread}
-              </span>
-            )}
-          </Link>
+          {user && <Link to="/notifications" aria-label="Notifications" className="grid h-9 w-9 place-items-center rounded-full text-white/80 hover:bg-white/10"><Bell className="h-4 w-4" /></Link>}
           {loading ? null : user ? (
             <>
               <Link
@@ -82,7 +69,7 @@ export function SiteHeader() {
                 className="hidden items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-sm text-white/90 hover:bg-white/5 sm:inline-flex"
               >
                 <LayoutDashboard className="h-4 w-4" />
-                {primaryRole === "seller" || primaryRole === "admin" ? "Seller console" : "My dashboard"}
+                {primaryRole === "seller" ? "Seller console" : "Vendor portal"}
               </Link>
               <button
                 onClick={signOut}
@@ -109,8 +96,26 @@ export function SiteHeader() {
               </Link>
             </>
           )}
+          <button
+            type="button"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            onClick={() => setMenuOpen((open) => !open)}
+            className="grid h-9 w-9 place-items-center rounded-full text-white/80 hover:bg-white/10 md:hidden"
+          >
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
+      {menuOpen && (
+        <nav className="border-t border-white/10 px-4 py-3 md:hidden">
+          {nav.map((item) => (
+            <Link key={item.to} to={item.to} onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 hover:text-white">
+              {item.label}
+            </Link>
+          ))}
+          {!user && <><Link to="/terms" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10">Terms</Link><Link to="/privacy" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10">Privacy</Link><Link to="/contact" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10">Contact</Link></>}
+        </nav>
+      )}
     </header>
   );
 }

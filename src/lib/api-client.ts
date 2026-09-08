@@ -81,7 +81,13 @@ class ScrapifyApiClient {
 
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json.message || `API Error: ${res.status}`);
+        if (res.status === 401) {
+          this.setToken(null);
+          if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("scrapify:auth"));
+        }
+        const error = new Error(json.message || `API Error: ${res.status}`) as Error & { status?: number };
+        error.status = res.status;
+        throw error;
       }
       return json;
     } catch (err) {
@@ -444,6 +450,14 @@ class ScrapifyApiClient {
   async getNotifications(params: Record<string, any> = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request<any>(`/notifications${query ? `?${query}` : ""}`);
+  }
+
+  async markNotificationRead(id: string | number) {
+    return this.request<any>(`/notifications/${id}/read`, { method: "POST" });
+  }
+
+  async markAllNotificationsRead() {
+    return this.request<any>("/notifications/read-all", { method: "POST" });
   }
 
   async validateToken(token: string) {

@@ -31,6 +31,7 @@ import {
   FALLBACK_OFFERS,
 } from "@/lib/enterprise";
 import { Card, PageHead, StateBadge, Table, Pill, Kpi } from "@/components/console/shell";
+import { toast } from "sonner";
 import { useTick } from "@/hooks/use-tick";
 
 const TABS = [
@@ -553,7 +554,7 @@ function Award({ event }: { event: AuctionEvent }) {
 
               <div className="pt-2">
                 <button
-                  onClick={() => alert("Fallback workflow is standby and will trigger if H1 fails balance settlement.")}
+                  onClick={() => toast.info("Fallback status is controlled by the auction API.")}
                   className="w-full rounded-lg bg-muted py-2 font-semibold text-xs text-foreground hover:bg-muted/80"
                 >
                   Configure Fallback Policy

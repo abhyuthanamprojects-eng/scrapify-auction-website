@@ -1,5 +1,5 @@
-// Customer-panel domain layer (mock / localStorage only).
-// Mirrors the admin status contract: the customer never invents a status.
+// Legacy client-side interaction state. Authoritative auction, EMD, bid,
+// result and notification state must come from the API.
 import type { Lot } from "./auction-data";
 
 export type EmdStatus =

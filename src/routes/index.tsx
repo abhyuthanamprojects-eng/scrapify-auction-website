@@ -4,7 +4,6 @@ import { ShieldCheck, Gavel, Truck, Scale, TrendingUp, Factory, Search, X, MapPi
 import { SiteHeader } from "@/components/site-header";
 import { LotCard } from "@/components/lot-card";
 import { formatINR, getAuctions, getCategories, type Lot } from "@/lib/auction-data";
-import { useRegistration } from "@/hooks/use-registration";
 import heroImg from "@/assets/hero-scrapyard.jpg";
 
 export const Route = createFileRoute("/")({
@@ -40,8 +39,6 @@ function Marketplace() {
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("All");
   const [detailsLot, setDetailsLot] = useState<Lot | null>(null);
-  const { state } = useRegistration();
-  const pending = state.paymentSubmitted && !state.approved;
 
   const locations = useMemo(
     () => ["All", ...Array.from(new Set(lots.map((l) => l.location).filter(Boolean)))],
@@ -62,25 +59,10 @@ function Marketplace() {
   }, [lots, segment, category, location, query]);
 
   const liveCount = lots.filter((l) => l.status === "live").length;
-  const totalGmv = lots.reduce((s, l) => s + l.currentBid, 0);
 
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
-
-      {pending && (
-        <div className="border-b border-amber-500/40 bg-amber-500/10">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm text-amber-900 sm:px-6">
-            <span>
-              <b>Verification Pending</b> — bidding stays locked until an admin approves
-              your KYC.
-            </span>
-            <Link to="/register" className="font-semibold underline">
-              Check status
-            </Link>
-          </div>
-        </div>
-      )}
 
       {/* Hero */}
       <section className="relative overflow-hidden bg-[color:var(--navy)] text-white">
@@ -112,23 +94,24 @@ function Marketplace() {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
-                to="/console"
+                to="/register"
                 className="rounded-full bg-[color:var(--auction)] px-6 py-3 text-sm font-semibold shadow-[0_10px_30px_-10px_rgba(249,115,22,0.7)] transition-colors hover:brightness-110"
               >
-                Open Enterprise Console
+                Sell through Scrapify
               </Link>
               <Link
-                to="/portal"
+                to="/auth"
+                search={{ mode: "signin" }}
                 className="rounded-full border border-white/25 bg-white/5 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/10"
               >
-                Vendor Bidding Portal
+                Sign in to bid
               </Link>
             </div>
 
             <div className="mt-10 grid max-w-lg grid-cols-3 gap-4 border-t border-white/10 pt-6">
-              <Stat label="Live now" value={String(liveCount)} />
-              <Stat label="Cumulative bids" value={"₹" + (totalGmv / 100000).toFixed(1) + "L"} />
-              <Stat label="Verified enterprises" value="240+" />
+              <Stat label="Live auctions" value={String(liveCount)} />
+              <Stat label="Data source" value="Live API" />
+              <Stat label="Bid access" value="KYC gated" />
             </div>
           </div>
         </div>
@@ -295,9 +278,9 @@ function Marketplace() {
             © {new Date().getFullYear()} Scrapify Auction
           </div>
           <div className="flex gap-6">
-            <a href="#" className="hover:text-white">Terms</a>
-            <a href="#" className="hover:text-white">Privacy</a>
-            <a href="#" className="hover:text-white">Contact</a>
+            <Link to="/terms" className="hover:text-white">Terms</Link>
+            <Link to="/privacy" className="hover:text-white">Privacy</Link>
+            <Link to="/contact" className="hover:text-white">Contact</Link>
           </div>
         </div>
       </footer>
