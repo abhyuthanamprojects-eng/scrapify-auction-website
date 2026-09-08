@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Clock,
@@ -65,23 +65,50 @@ function LiveRoom() {
   const hydrated = useHydrated();
   const flow = useFlow();
   const { state } = useRegistration();
+  const [liveState, setLiveState] = useState<any>(null);
+  const [serverOffset, setServerOffset] = useState(0);
+  const [liveBids, setLiveBids] = useState<any[]>([]);
+  const [stateError, setStateError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const refreshLiveState = async () => {
+    try {
+      const [stateResponse, bidsResponse] = await Promise.all([
+        api.getLiveState(lot.id),
+        api.getAuctionBids(lot.id),
+      ]);
+      const next = stateResponse?.data ?? stateResponse;
+      setLiveState(next);
+      setLiveBids(Array.isArray(bidsResponse?.data) ? bidsResponse.data : []);
+      setStateError("");
+      if (next?.server_time) setServerOffset(new Date(next.server_time).getTime() - Date.now());
+    } catch (cause) {
+      setStateError(cause instanceof Error ? cause.message : "Unable to load live auction state.");
+    }
+  };
+
+  useEffect(() => {
+    refreshLiveState();
+    const timer = window.setInterval(refreshLiveState, 5000);
+    return () => window.clearInterval(timer);
+  }, [lot.id]);
 
   const participation = flow.participation[lot.id];
   const emdConfirmed = participation?.emd === "confirmed";
   const approved = state.vendorStatus === "approved";
   const extended = flow.extendedBy[lot.id] ?? 0;
   const closed = flow.endedNow.includes(lot.id);
-  const endsAt = lot.endsAt + extended * 60_000;
-  const remaining = Math.max(0, endsAt - Date.now());
-  const over = closed || remaining === 0;
+  const endsAt = liveState?.active_slot?.ends_at
+    ? Date.parse(liveState.active_slot.ends_at)
+    : liveState?.schedule_end
+      ? Date.parse(liveState.schedule_end)
+      : lot.endsAt;
+  const remaining = Math.max(0, endsAt - (Date.now() + serverOffset));
+  const over = closed || remaining === 0 || liveState?.status !== "live";
 
   const isReverse = lot.auctionType === "reverse";
   const myBid = flow.myBids[lot.id];
-  const current = myBid
-    ? isReverse
-      ? Math.min(myBid, lot.currentBid)
-      : Math.max(myBid, lot.currentBid)
-    : lot.currentBid;
+  const current = Number(liveState?.current_highest_inr ?? lot.currentBid);
 
   const [subLot, setSubLot] = useState("1");
   const [amount, setAmount] = useState(
@@ -94,15 +121,12 @@ function LiveRoom() {
   const perSubLot = lotType(lot) === "Lot-wise";
 
   const board = useMemo(() => {
-    const rows = lot.history.map((h, i) => ({
-      alias: maskedAlias(i),
-      amount: h.amount,
-      at: h.at,
-      mine: false,
+    const rows = liveBids.map((b, i) => ({
+      alias: maskedAlias(i), amount: Number(b.amount_inr ?? b.amount), at: b.at ?? "", mine: false,
     }));
     if (myBid) rows.unshift({ alias: "You", amount: myBid, at: "just now", mine: true });
     return rows.sort((a, b) => (isReverse ? a.amount - b.amount : b.amount - a.amount));
-  }, [lot.history, myBid, isReverse]);
+  }, [liveBids, myBid, isReverse]);
 
   const myRank = myBid ? board.findIndex((r) => r.mine) + 1 : null;
 
@@ -149,14 +173,7 @@ function LiveRoom() {
     <div className="min-h-screen bg-background pb-32">
       <SiteHeader />
 
-      {extended > 0 && !over && (
-        <div className="border-b border-amber-500/40 bg-amber-500/10">
-          <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2.5 text-sm text-amber-900 sm:px-6">
-            <Timer className="h-4 w-4" />
-            Auction extended by {extended} minutes by the auctioneer (anti-sniping).
-          </div>
-        </div>
-      )}
+      {stateError && <div className="border-b border-red-500/40 bg-red-500/10 px-4 py-2 text-center text-sm text-red-800">Live state unavailable: {stateError}</div>}
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         <Link
@@ -192,9 +209,9 @@ function LiveRoom() {
                 </div>
               </div>
               <div className="mt-6 grid grid-cols-3 gap-4 border-t border-white/10 pt-4">
-                <Metric label={isReverse ? "Current L1" : "Live price"} value={formatINR(current)} />
+                <Metric label={isReverse ? "Current L1" : "Live price"} value={liveState ? formatINR(current) : "—"} />
                 <Metric label="My rank" value={myRank ? `#${myRank}` : "—"} />
-                <Metric label="Bidders" value={String(lot.bidders)} />
+                <Metric label="Bidders" value={liveState ? String(liveState.bidders ?? 0) : "—"} />
               </div>
               <p className="mt-3 text-xs text-white/50">
                 Countdown is synced to server time. Bidder identities are masked.
@@ -358,19 +375,23 @@ function LiveRoom() {
               </button>
               <button
                 onClick={async () => {
+                  setSubmitting(true);
                   try {
                     await api.placeBid(lot.id, {
                       amount,
+                      idempotency_key: window.crypto.randomUUID(),
                       ...(perSubLot ? { lot: subLot } : {}),
                     });
                     notify("Bid placed", `${formatINR(amount)} on ${lot.id}.`, "success");
                     setConfirm(false);
+                    await refreshLiveState();
                     await navigate({ to: "/live/$id", params: { id: lot.id }, replace: true });
                   } catch (cause) {
                     setError(cause instanceof Error ? cause.message : "Bid could not be placed.");
                     setConfirm(false);
-                  }
+                  } finally { setSubmitting(false); }
                 }}
+                disabled={submitting}
                 className="flex-1 rounded-full bg-[color:var(--auction)] py-2.5 text-sm font-bold text-white"
               >
                 Confirm bid

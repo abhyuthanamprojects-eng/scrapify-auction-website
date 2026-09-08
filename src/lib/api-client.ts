@@ -200,6 +200,11 @@ class ScrapifyApiClient {
     return this.request<any>(`/vendors/${vendorCode}/kyc-status`);
   }
 
+  async getBusinessVerification() { return this.request<any>("/kyb/status"); }
+  async verifyGstin(gstin: string, business_name?: string) { return this.request<any>("/kyb/gstin/verify", { method: "POST", body: JSON.stringify({ gstin, business_name }) }); }
+  async verifyBank(data: { bank_account: string; bank_account_confirmation: string; ifsc: string; name?: string; phone?: string }) { return this.request<any>("/kyb/bank/verify", { method: "POST", body: JSON.stringify(data) }); }
+  async requestBusinessReverification() { return this.request<any>("/kyb/reverify", { method: "POST" }); }
+
   async registerVendor(data: Record<string, unknown>) {
     return this.request<any>("/vendors/register", {
       method: "POST",
@@ -225,7 +230,7 @@ class ScrapifyApiClient {
   }
 
   async getPlatformConfig() {
-    return this.request<{ vendor_registration_fee: number; currency: string }>("/platform-config");
+    return this.request<{ vendor_registration_fee: number; currency: string; auction_edit_lock_hours: number }>("/platform-config");
   }
 
   /* ---------------- Auctions & Lots ---------------- */
@@ -285,7 +290,11 @@ class ScrapifyApiClient {
     return this.request<any>(`/auctions/${code}/live-state`);
   }
 
-  async placeBid(code: string, data: { amount: number; lot?: string }) {
+  async getAuctionResult(code: string) {
+    return this.request<any>(`/auctions/${code}/result`);
+  }
+
+  async placeBid(code: string, data: { amount: number; lot?: string; idempotency_key?: string }) {
     return this.request<any>(`/auctions/${code}/bids`, {
       method: "POST",
       body: JSON.stringify(data),
@@ -378,6 +387,21 @@ class ScrapifyApiClient {
     return this.request<ApiResponse<any>>(`/awards/${id}/accept`, {
       method: "POST",
     });
+  }
+
+  async declineAward(id: number, reason: string) {
+    return this.request<ApiResponse<any>>(`/awards/${id}/decline`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async acceptFallback(id: number) {
+    return this.request<ApiResponse<any>>(`/fallback-offers/${id}/accept`, { method: "POST" });
+  }
+
+  async declineFallback(id: number, reason: string) {
+    return this.request<ApiResponse<any>>(`/fallback-offers/${id}/decline`, { method: "POST", body: JSON.stringify({ reason }) });
   }
 
   /* ---------------- Orders & Fulfilment ---------------- */

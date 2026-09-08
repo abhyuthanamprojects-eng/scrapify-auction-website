@@ -38,6 +38,7 @@ import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedSellerRouteImport } from './routes/_authenticated/seller'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedBusinessVerificationRouteImport } from './routes/_authenticated/business-verification'
 import { Route as ConsoleEventsIndexRouteImport } from './routes/console.events.index'
 import { Route as PortalEventsIdRouteImport } from './routes/portal.events.$id'
 import { Route as ConsoleEventsNewRouteImport } from './routes/console.events.new'
@@ -188,6 +189,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBusinessVerificationRoute =
+  AuthenticatedBusinessVerificationRouteImport.update({
+    id: '/business-verification',
+    path: '/business-verification',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ConsoleEventsIndexRoute = ConsoleEventsIndexRouteImport.update({
   id: '/events/',
   path: '/events/',
@@ -215,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/console': typeof ConsoleRouteWithChildren
   '/portal': typeof PortalRouteWithChildren
   '/register': typeof RegisterRoute
+  '/business-verification': typeof AuthenticatedBusinessVerificationRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/seller': typeof AuthenticatedSellerRoute
@@ -247,6 +255,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/register': typeof RegisterRoute
+  '/business-verification': typeof AuthenticatedBusinessVerificationRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/seller': typeof AuthenticatedSellerRoute
@@ -283,6 +292,7 @@ export interface FileRoutesById {
   '/console': typeof ConsoleRouteWithChildren
   '/portal': typeof PortalRouteWithChildren
   '/register': typeof RegisterRoute
+  '/_authenticated/business-verification': typeof AuthenticatedBusinessVerificationRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/seller': typeof AuthenticatedSellerRoute
@@ -319,6 +329,7 @@ export interface FileRouteTypes {
     | '/console'
     | '/portal'
     | '/register'
+    | '/business-verification'
     | '/dashboard'
     | '/notifications'
     | '/seller'
@@ -351,6 +362,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/register'
+    | '/business-verification'
     | '/dashboard'
     | '/notifications'
     | '/seller'
@@ -386,6 +398,7 @@ export interface FileRouteTypes {
     | '/console'
     | '/portal'
     | '/register'
+    | '/_authenticated/business-verification'
     | '/_authenticated/dashboard'
     | '/_authenticated/notifications'
     | '/_authenticated/seller'
@@ -633,6 +646,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/business-verification': {
+      id: '/_authenticated/business-verification'
+      path: '/business-verification'
+      fullPath: '/business-verification'
+      preLoaderRoute: typeof AuthenticatedBusinessVerificationRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/console/events/': {
       id: '/console/events/'
       path: '/events'
@@ -665,6 +685,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedBusinessVerificationRoute: typeof AuthenticatedBusinessVerificationRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedSellerRoute: typeof AuthenticatedSellerRoute
@@ -672,6 +693,8 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedBusinessVerificationRoute:
+    AuthenticatedBusinessVerificationRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedSellerRoute: AuthenticatedSellerRoute,

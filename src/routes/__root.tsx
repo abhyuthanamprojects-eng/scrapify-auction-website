@@ -11,7 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { initScreenProtection } from "@/lib/screen-protection";
+import { initBrowserSecurity, SecurityGate, SecurityWatermark } from "@/lib/browser-security";
 import { supabase as supabaseImport } from "@/integrations/supabase/client";
 import { MobileTabBar } from "@/components/mobile-tabbar";
 
@@ -137,7 +137,7 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    initScreenProtection();
+    return initBrowserSecurity();
   }, []);
 
   useEffect(() => {
@@ -151,12 +151,15 @@ function RootComponent() {
   }, [router, queryClient]);
 
   return (
+    <SecurityGate>
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <div className="pb-14 md:pb-0">
         <Outlet />
       </div>
+      <SecurityWatermark />
       <MobileTabBar />
     </QueryClientProvider>
+    </SecurityGate>
   );
 }

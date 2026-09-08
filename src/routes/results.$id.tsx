@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -12,6 +12,7 @@ import {
 import { SiteHeader } from "@/components/site-header";
 import { getLot, formatINR, type Lot } from "@/lib/auction-data";
 import { useFlow } from "@/hooks/use-flow";
+import { api } from "@/lib/api-client";
 import {
   EMD_LABEL,
   payableSummary,
@@ -67,6 +68,13 @@ function ResultPage() {
   const participation = flow.participation[lot.id];
   const emdHeld = participation?.emd === "confirmed" ? lot.emd : 0;
   const payment = flow.payments[lot.id];
+  const [authoritativeResult, setAuthoritativeResult] = useState<any>(null);
+
+  useEffect(() => {
+    api.getAuctionResult(lot.id).then((response) => setAuthoritativeResult(response.data ?? response)).catch(() => {
+      // Older/legacy auctions may not have an authoritative close snapshot.
+    });
+  }, [lot.id]);
 
   const isReverse = lot.auctionType === "reverse";
   const leads = myBid
@@ -124,6 +132,44 @@ function ResultPage() {
             </div>
           </div>
         </div>
+
+        {authoritativeResult && (
+          <section className="mt-6 card-soft p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-display text-lg font-bold">Verified auction result</h2>
+              <span className="rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {authoritativeResult.status ?? "provisional"}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              This result is calculated from the server-side close snapshot. The applied configuration and terms cannot be changed after close.
+            </p>
+            <dl className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-border p-4 text-sm sm:grid-cols-4">
+              <div><dt className="text-xs text-muted-foreground">Final value</dt><dd className="font-semibold">{authoritativeResult.final_value == null ? "—" : formatINR(Number(authoritativeResult.final_value))}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Server outcome</dt><dd className="font-semibold">Authoritative</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Terms version</dt><dd className="font-semibold">{authoritativeResult.terms_version_id ?? "—"}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Config snapshot</dt><dd className="font-semibold">{authoritativeResult.config_snapshot_id ?? "—"}</dd></div>
+            </dl>
+            <div className="mt-4 rounded-xl border border-border p-4 text-sm">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div><div className="text-xs text-muted-foreground">Your rank</div><div className="font-semibold">{authoritativeResult.participant?.rank ?? "Not ranked"}</div></div>
+                <div><div className="text-xs text-muted-foreground">Your bid</div><div className="font-semibold">{authoritativeResult.participant?.amount == null ? "—" : formatINR(Number(authoritativeResult.participant.amount))}</div></div>
+                <div><div className="text-xs text-muted-foreground">Confirmation</div><div className="font-semibold">{authoritativeResult.participant?.confirmation_status ?? "—"}</div></div>
+                <div><div className="text-xs text-muted-foreground">EMD status</div><div className="font-semibold">{authoritativeResult.emd?.status ?? "—"}</div></div>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">Only your participant and EMD details are shown here. Other bidders' financial information is private.</p>
+            </div>
+            {authoritativeResult.seller?.ranking && (
+              <div className="mt-4 rounded-xl border border-border p-4 text-sm">
+                <h3 className="font-semibold">Seller result view</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Bidder identities and EMD details are intentionally hidden.</p>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {authoritativeResult.seller.ranking.map((row: any) => <div key={row.rank} className="rounded-lg bg-muted/40 p-2"><div className="text-xs text-muted-foreground">{row.rank}</div><div className="font-semibold">{formatINR(Number(row.amount))}</div></div>)}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         {outcome === "won" ? (
           <>
