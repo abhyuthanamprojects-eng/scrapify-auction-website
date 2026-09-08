@@ -53,7 +53,7 @@ function DisputesPage() {
   const [actionType, setActionType] = useState<"evidence" | "committee" | "decision" | null>(null);
   const [modalText, setModalText] = useState("");
   const [newDisputeOpen, setNewDisputeOpen] = useState(false);
-  const [newParty, setNewParty] = useState("Meridian Metals Pvt Ltd");
+  const [newParty, setNewParty] = useState("");
   const [newType, setNewType] = useState<Dispute["type"]>("quantity");
   const [newSeverity, setNewSeverity] = useState<Dispute["severity"]>("medium");
   const [newSummary, setNewSummary] = useState("");
@@ -90,7 +90,7 @@ function DisputesPage() {
     const newEntry: Dispute = {
       id: `DSP-${Math.floor(100 + Math.random() * 900)}`,
       eventId: "FWD-2026-0341",
-      party: newParty,
+      party: newParty.trim() || "—",
       type: newType,
       severity: newSeverity,
       status: "open",

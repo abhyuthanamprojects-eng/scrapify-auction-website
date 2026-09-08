@@ -1,14 +1,9 @@
-// Legacy client-side interaction state. Authoritative auction, EMD, bid,
-// result and notification state must come from the API.
+// Compatibility helpers for legacy auction screens.
+// Transactional state is authoritative in the API; this module never persists
+// registrations, EMDs, bids, payments, refunds, or gate passes locally.
 import type { Lot } from "./auction-data";
 
-export type EmdStatus =
-  | "not_paid"
-  | "pending"
-  | "confirmed"
-  | "refund_initiated"
-  | "refunded";
-
+export type EmdStatus = "not_paid" | "pending" | "confirmed" | "refund_initiated" | "refunded";
 export const EMD_LABEL: Record<EmdStatus, string> = {
   not_paid: "Not Paid",
   pending: "EMD Pending",
@@ -17,33 +12,10 @@ export const EMD_LABEL: Record<EmdStatus, string> = {
   refunded: "Refunded",
 };
 
-export type Participation = {
-  lotId: string;
-  emd: EmdStatus;
-  method?: "gateway" | "neft";
-  reference?: string;
-  registeredAt: number;
-};
-
-export type Txn = {
-  id: string;
-  at: number;
-  label: string;
-  amount: number;
-  kind: "hold" | "release" | "debit" | "credit";
-};
-
-export type Notice = {
-  id: string;
-  at: number;
-  title: string;
-  body: string;
-  kind: "info" | "warn" | "success";
-  read: boolean;
-};
-
+export type Participation = { lotId: string; emd: EmdStatus; method?: "gateway" | "neft"; reference?: string; registeredAt: number };
+export type Txn = { id: string; at: number; label: string; amount: number; kind: "hold" | "release" | "debit" | "credit" };
+export type Notice = { id: string; at: number; title: string; body: string; kind: "info" | "warn" | "success"; read: boolean };
 export type PaymentRecord = { reference: string; at: number; lifting?: string };
-
 export type FlowState = {
   participation: Record<string, Participation>;
   watch: string[];
@@ -56,213 +28,33 @@ export type FlowState = {
   prefs: { email: boolean; sms: boolean; inApp: boolean; push: boolean };
 };
 
-const KEY = "scrapify.flow.v1";
-const EVT = "scrapify:flow";
-
 export const emptyFlow = (): FlowState => ({
-  participation: {},
-  watch: [],
-  txns: [],
-  notices: [],
-  myBids: {},
-  payments: {},
-  extendedBy: {},
-  endedNow: [],
-  prefs: { email: true, sms: true, inApp: true, push: true },
+  participation: {}, watch: [], txns: [], notices: [], myBids: {}, payments: {},
+  extendedBy: {}, endedNow: [], prefs: { email: true, sms: true, inApp: true, push: true },
 });
 
-export function loadFlow(): FlowState {
-  if (typeof window === "undefined") return emptyFlow();
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    return raw ? { ...emptyFlow(), ...JSON.parse(raw) } : emptyFlow();
-  } catch {
-    return emptyFlow();
-  }
-}
+export function loadFlow(): FlowState { return emptyFlow(); }
+export function saveFlow(_next: FlowState) { /* API state is authoritative. */ }
+export function mutateFlow(_fn: (s: FlowState) => FlowState) { return emptyFlow(); }
+export const FLOW_EVENT = "scrapify:api-flow";
 
-export function saveFlow(next: FlowState) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(KEY, JSON.stringify(next));
-  window.dispatchEvent(new CustomEvent(EVT));
-}
-
-export function mutateFlow(fn: (s: FlowState) => FlowState) {
-  const next = fn(loadFlow());
-  saveFlow(next);
-  return next;
-}
-
-export const FLOW_EVENT = EVT;
-
-const uid = () => Math.random().toString(36).slice(2, 10);
-
-export function notify(
-  title: string,
-  body: string,
-  kind: Notice["kind"] = "info",
-): void {
-  mutateFlow((s) => ({
-    ...s,
-    notices: [
-      { id: uid(), at: Date.now(), title, body, kind, read: false },
-      ...s.notices,
-    ].slice(0, 40),
-  }));
-}
-
-export function markAllRead() {
-  mutateFlow((s) => ({ ...s, notices: s.notices.map((n) => ({ ...n, read: true })) }));
-}
-
-export function toggleWatch(lotId: string) {
-  mutateFlow((s) => ({
-    ...s,
-    watch: s.watch.includes(lotId)
-      ? s.watch.filter((x) => x !== lotId)
-      : [...s.watch, lotId],
-  }));
-}
-
-// ---------- Participation & EMD ----------
-
-export function registerForAuction(lot: Lot) {
-  mutateFlow((s) => ({
-    ...s,
-    participation: {
-      ...s.participation,
-      [lot.id]: {
-        lotId: lot.id,
-        emd: s.participation[lot.id]?.emd ?? "not_paid",
-        registeredAt: Date.now(),
-      },
-    },
-  }));
-  notify(
-    "Registered for auction",
-    `You registered for ${lot.id}. Pay the EMD of ${inr(lot.emd)} to enter the bidding room.`,
-  );
-}
-
-export function payEmd(lot: Lot, method: "gateway" | "neft", reference: string) {
-  mutateFlow((s) => ({
-    ...s,
-    participation: {
-      ...s.participation,
-      [lot.id]: {
-        lotId: lot.id,
-        registeredAt: s.participation[lot.id]?.registeredAt ?? Date.now(),
-        emd: "pending",
-        method,
-        reference,
-      },
-    },
-    txns: [
-      {
-        id: uid(),
-        at: Date.now(),
-        label: `EMD submitted · ${lot.id}`,
-        amount: lot.emd,
-        kind: "debit",
-      },
-      ...s.txns,
-    ],
-  }));
-  notify("EMD submitted", `EMD for ${lot.id} is pending admin confirmation.`, "warn");
-}
-
-export function confirmEmd(lot: Lot) {
-  mutateFlow((s) => {
-    const p = s.participation[lot.id];
-    if (!p) return s;
-    return {
-      ...s,
-      participation: { ...s.participation, [lot.id]: { ...p, emd: "confirmed" } },
-      txns: [
-        {
-          id: uid(),
-          at: Date.now(),
-          label: `EMD blocked · ${lot.id}`,
-          amount: lot.emd,
-          kind: "hold",
-        },
-        ...s.txns,
-      ],
-    };
-  });
-  notify("EMD confirmed", `You can now enter the live room for ${lot.id}.`, "success");
-}
-
-export function refundEmd(lot: Lot, stage: "refund_initiated" | "refunded") {
-  mutateFlow((s) => {
-    const p = s.participation[lot.id];
-    if (!p) return s;
-    return {
-      ...s,
-      participation: { ...s.participation, [lot.id]: { ...p, emd: stage } },
-      txns:
-        stage === "refunded"
-          ? [
-              {
-                id: uid(),
-                at: Date.now(),
-                label: `EMD refunded · ${lot.id}`,
-                amount: lot.emd,
-                kind: "credit",
-              },
-              ...s.txns,
-            ]
-          : s.txns,
-    };
-  });
-  notify(
-    stage === "refunded" ? "EMD refunded" : "EMD refund initiated",
-    `${lot.id}: ${EMD_LABEL[stage]}.`,
-    stage === "refunded" ? "success" : "info",
-  );
-}
-
-export function placeBid(lot: Lot, amount: number) {
-  mutateFlow((s) => ({ ...s, myBids: { ...s.myBids, [lot.id]: amount } }));
-}
-
-export function extendAuction(lot: Lot, minutes: number) {
-  mutateFlow((s) => ({
-    ...s,
-    extendedBy: { ...s.extendedBy, [lot.id]: (s.extendedBy[lot.id] ?? 0) + minutes },
-  }));
-  notify("Auction extended", `${lot.id} extended by ${minutes} minutes.`, "warn");
-}
-
-export function endNow(lot: Lot) {
-  mutateFlow((s) => ({ ...s, endedNow: [...new Set([...s.endedNow, lot.id])] }));
-  notify("Auction closed", `${lot.id} was closed by the auctioneer.`, "warn");
-}
-
-export function submitPayment(lot: Lot, reference: string) {
-  mutateFlow((s) => ({
-    ...s,
-    payments: { ...s.payments, [lot.id]: { reference, at: Date.now() } },
-  }));
-  notify("Payment submitted", `Balance payment reference recorded for ${lot.id}.`, "success");
-}
-
-export function scheduleLifting(lot: Lot, slot: string) {
-  mutateFlow((s) => ({
-    ...s,
-    payments: {
-      ...s.payments,
-      [lot.id]: { ...(s.payments[lot.id] ?? { reference: "—", at: Date.now() }), lifting: slot },
-    },
-  }));
-  notify("Lifting scheduled", `${lot.id} pickup slot: ${slot}. Gate pass generated.`, "success");
-}
-
-// ---------- Money rules (must match the admin H1 report) ----------
+// These names remain for legacy screens. They intentionally do not claim
+// success or create local business records; callers must use the API actions.
+export function notify(_title: string, _body: string, _kind: Notice["kind"] = "info") {}
+export function markAllRead() {}
+export function toggleWatch(_lotId: string) {}
+export function registerForAuction(_lot: Lot) {}
+export function payEmd(_lot: Lot, _method: "gateway" | "neft", _reference: string) {}
+export function confirmEmd(_lot: Lot) {}
+export function refundEmd(_lot: Lot, _stage: "refund_initiated" | "refunded") {}
+export function placeBid(_lot: Lot, _amount: number) {}
+export function extendAuction(_lot: Lot, _minutes: number) {}
+export function endNow(_lot: Lot) {}
+export function submitPayment(_lot: Lot, _reference: string) {}
+export function scheduleLifting(_lot: Lot, _slot: string) {}
 
 export const GST_RATE = 0.18;
 export const TCS_RATE = 0.01;
-
 export function payableSummary(h1: number, emdHeld: number) {
   const gst = Math.round(h1 * GST_RATE);
   const tcs = Math.round((h1 + gst) * TCS_RATE);
@@ -270,56 +62,16 @@ export function payableSummary(h1: number, emdHeld: number) {
   return { h1, gst, tcs, total, emdHeld, balance: total - emdHeld };
 }
 
-// ---------- Auction derived data (mock enrichment) ----------
-
-export function emdPercent(lot: Lot): number {
-  return Math.round((lot.emd / lot.reserve) * 1000) / 10;
-}
-
-export function lotType(lot: Lot): "Single" | "Lot-wise" {
-  return lot.subLots.length > 1 ? "Lot-wise" : "Single";
-}
-
-export function startsAt(lot: Lot): number {
-  return lot.startsAt;
-}
-
-export function endsAtWithExtension(lot: Lot, extendedMinutes = 0): number {
-  return lot.endsAt + extendedMinutes * 60_000;
-}
-
+export function emdPercent(lot: Lot): number { return lot.reserve > 0 ? Math.round((lot.emd / lot.reserve) * 1000) / 10 : 0; }
+export function lotType(lot: Lot): "Single" | "Lot-wise" { return lot.subLots.length > 1 ? "Lot-wise" : "Single"; }
+export function startsAt(lot: Lot): number { return lot.startsAt; }
+export function endsAtWithExtension(lot: Lot, extendedMinutes = 0): number { return lot.endsAt + extendedMinutes * 60_000; }
 export function subLots(lot: Lot) {
-  if (lot.subLots.length > 0) return lot.subLots;
-  return [
-    {
-      no: "1",
-      description: lot.title,
-      quantity: lot.weight,
-      startPrice: lot.reserve,
-    },
-  ];
+  return lot.subLots.length > 0 ? lot.subLots : [{ no: "1", description: lot.title, quantity: lot.weight, startPrice: lot.reserve }];
 }
-
 export function inspection(lot: Lot) {
-  return {
-    window: "Weekdays 10:00–16:00, up to 24h before auction close",
-    contact: "Site in-charge (revealed after EMD confirmation)",
-    address: `${lot.seller}, ${lot.location}`,
-  };
+  return { window: "Inspection schedule provided by the auction API", contact: "Contact details revealed by the auction API", address: `${lot.seller}, ${lot.location}` };
 }
-
-export function terms(lot: Lot) {
-  return lot.terms;
-}
-
-export function documents(lot: Lot) {
-  return [] as Array<{ name: string; size: string }>;
-}
-
-export function maskedAlias(i: number) {
-  return `Bidder ${String.fromCharCode(65 + (i % 26))}`;
-}
-
-function inr(n: number) {
-  return "₹" + n.toLocaleString("en-IN");
-}
+export function terms(lot: Lot) { return lot.terms; }
+export function documents(_lot: Lot) { return [] as Array<{ name: string; size: string }>; }
+export function maskedAlias(i: number) { return `Bidder ${String.fromCharCode(65 + (i % 26))}`; }

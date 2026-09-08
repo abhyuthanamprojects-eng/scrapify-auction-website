@@ -18,7 +18,6 @@ import {
   Calendar,
 } from "lucide-react";
 import {
-  getEvent,
   FORMAT_LABEL,
   approvalTriggers,
   publishChecklist,
@@ -28,8 +27,9 @@ import {
   timeLeft,
   fmtDate,
   type AuctionEvent,
-  FALLBACK_OFFERS,
 } from "@/lib/enterprise";
+import { loadEvent } from "@/lib/enterprise-api";
+import { api } from "@/lib/api-client";
 import { Card, PageHead, StateBadge, Table, Pill, Kpi } from "@/components/console/shell";
 import { toast } from "sonner";
 import { useTick } from "@/hooks/use-tick";
@@ -49,9 +49,13 @@ const TABS = [
 type Tab = (typeof TABS)[number];
 
 export const Route = createFileRoute("/console/events/$id")({
-  loader: ({ params }) => {
-    const event = getEvent(params.id);
+  loader: async ({ params }) => {
+    const [event, meResponse] = await Promise.all([loadEvent(params.id), api.me()]);
     if (!event) throw notFound();
+    const user = meResponse?.user ?? meResponse?.data?.user ?? meResponse?.data;
+    if (event.ownerUserId != null && String(event.ownerUserId) !== String(user?.id)) {
+      throw notFound();
+    }
     return { event };
   },
   head: ({ loaderData }) => {
@@ -462,15 +466,13 @@ function Monitor({ event }: { event: AuctionEvent }) {
 }
 
 function Evaluation({ event }: { event: AuctionEvent }) {
-  const isReverse = event.direction === "reverse";
-
   return (
     <div className="space-y-6">
       <Card title="Post-Auction Decision Pack" desc="Commercial evaluation ready for multi-tier executive approval">
         <div className="grid gap-4 sm:grid-cols-3 rounded-xl bg-muted/40 p-4 mb-4">
           <div>
             <span className="text-xs text-muted-foreground">Winning Bidder</span>
-            <p className="font-bold text-base text-foreground">{event.participants[0]?.name ?? "Meridian Metals"}</p>
+            <p className="font-bold text-base text-foreground">{event.participants[0]?.name ?? "Not available"}</p>
           </div>
           <div>
             <span className="text-xs text-muted-foreground">Winning Award Value</span>
@@ -479,7 +481,7 @@ function Evaluation({ event }: { event: AuctionEvent }) {
           <div>
             <span className="text-xs text-muted-foreground">Commercial Benefit</span>
             <p className="font-bold text-base text-[color:var(--success)]">
-              {isReverse ? `₹3.20 Cr Savings (8.4%)` : `₹9.20 L Realisation Uplift (+10.8%)`}
+              Backend settlement calculation
             </p>
           </div>
         </div>
@@ -487,8 +489,8 @@ function Evaluation({ event }: { event: AuctionEvent }) {
         <div className="rounded-xl border border-border p-4 bg-card">
           <h4 className="font-display text-sm font-bold mb-2">Committee Recommendations:</h4>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            The event demonstrated healthy competition with {event.participants.length} verified participants and {event.bids.length} bids. 
-            Winning offer complies with all technical qualification criteria and statutory undertakings. Immediate award approval recommended.
+            The server returned {event.participants.length} verified participants and {event.bids.length} bids for this event.
+            Qualification and award recommendations are shown only when returned by the authoritative workflow.
           </p>
         </div>
       </Card>
@@ -498,7 +500,6 @@ function Evaluation({ event }: { event: AuctionEvent }) {
 
 function Award({ event }: { event: AuctionEvent }) {
   const s = settlement(event);
-  const fallback = FALLBACK_OFFERS.find((f) => f.eventId === event.id);
 
   return (
     <div className="space-y-6">
@@ -534,35 +535,6 @@ function Award({ event }: { event: AuctionEvent }) {
           </div>
         </Card>
 
-        {fallback && (
-          <Card title="H2 / L2 Fallback Acquisition Matrix" desc="Contingency acquisition plan if winner defaults within 48h">
-            <div className="space-y-3 text-xs">
-              <div className="rounded-lg bg-muted/40 p-3">
-                <div className="flex justify-between font-bold">
-                  <span>H2 Fallback Bidder: {fallback.h2Vendor}</span>
-                  <span className="font-mono">{inr(fallback.h2Amount)}</span>
-                </div>
-                <p className="text-muted-foreground mt-1">Price Delta vs Winner: ₹{fallback.priceDelta.toLocaleString("en-IN")}</p>
-              </div>
-
-              <div className="rounded-lg bg-muted/40 p-3">
-                <div className="flex justify-between font-bold">
-                  <span>H3 Fallback Bidder: {fallback.h3Vendor}</span>
-                  <span className="font-mono">{inr(fallback.h3Amount)}</span>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  onClick={() => toast.info("Fallback status is controlled by the auction API.")}
-                  className="w-full rounded-lg bg-muted py-2 font-semibold text-xs text-foreground hover:bg-muted/80"
-                >
-                  Configure Fallback Policy
-                </button>
-              </div>
-            </div>
-          </Card>
-        )}
       </div>
     </div>
   );

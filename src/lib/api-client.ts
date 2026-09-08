@@ -85,8 +85,12 @@ class ScrapifyApiClient {
           this.setToken(null);
           if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("scrapify:auth"));
         }
-        const error = new Error(json.message || `API Error: ${res.status}`) as Error & { status?: number };
+        const error = new Error(json.message || json.error?.message || `API Error: ${res.status}`) as Error & {
+          status?: number;
+          code?: string;
+        };
         error.status = res.status;
+        error.code = json.error?.code ?? json.code;
         throw error;
       }
       return json;
@@ -298,6 +302,17 @@ class ScrapifyApiClient {
 
   async getAuctionResult(code: string) {
     return this.request<any>(`/auctions/${code}/result`);
+  }
+
+  async acceptAuctionTerms(code: string) {
+    return this.request<any>(`/auctions/${code}/terms/accept`, { method: "POST" });
+  }
+
+  async lockEmd(code: string, lot?: string) {
+    return this.request<any>("/emd/lock", {
+      method: "POST",
+      body: JSON.stringify({ auction_id: code, ...(lot ? { lot } : {}) }),
+    });
   }
 
   async placeBid(code: string, data: { amount: number; lot?: string; idempotency_key?: string }) {

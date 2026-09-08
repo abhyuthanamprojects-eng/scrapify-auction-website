@@ -54,11 +54,10 @@ const eventFormat = (row: Record<string, any>): EventFormat => {
   return row.direction === 'reverse' ? 'rfq' : 'english';
 };
 
-export async function loadEvents(params: Record<string, string> = {}): Promise<AuctionEvent[]> {
-  const response = await api.getAuctions({ ...params, per_page: '100' });
-  const rows = asRows(response);
-  return rows.map((row: Record<string, any>) => ({
+export function toAuctionEvent(row: Record<string, any>): AuctionEvent {
+  return {
     id: String(row.code ?? row.id),
+    ownerUserId: row.owner_user_id ?? null,
     title: String(row.title ?? ''),
     category: String(row.category ?? 'Scrap & Metals') as AuctionEvent['category'],
     direction: row.direction === 'reverse' ? 'reverse' : 'forward',
@@ -104,7 +103,23 @@ export async function loadEvents(params: Record<string, string> = {}): Promise<A
     approvals: [],
     terms: typeof row.terms === 'string' ? row.terms.split(/\r?\n/).filter(Boolean) : [],
     audit: [],
-  }));
+  };
+}
+
+export async function loadEvents(params: Record<string, string> = {}): Promise<AuctionEvent[]> {
+  const response = await api.getAuctions({ ...params, per_page: '100' });
+  const rows = asRows(response);
+  return rows.map(toAuctionEvent);
+}
+
+export async function loadEvent(code: string): Promise<AuctionEvent | null> {
+  try {
+    const response = await api.getAuction(code);
+    const row = (response?.data ?? response) as Record<string, any>;
+    return row && (row.code || row.id) ? toAuctionEvent(row) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function loadVendors(): Promise<Vendor[]> {

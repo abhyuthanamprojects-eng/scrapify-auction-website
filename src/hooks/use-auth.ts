@@ -6,15 +6,15 @@ export type AppUser = {
   id?: string | number;
   email?: string;
   name?: string;
-  role?: AppRole;
-  roles?: AppRole[];
+  role?: string;
+  roles?: string[];
   user_metadata?: { full_name?: string };
 };
 
 export interface AuthState {
   loading: boolean;
   user: AppUser | null;
-  roles: AppRole[];
+  roles: string[];
   primaryRole: AppRole | null;
 }
 
@@ -51,8 +51,10 @@ export function useAuth(): AuthState {
     };
   }, []);
 
-  const roles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
-  const primaryRole: AppRole | null = roles.includes('admin')
+  const rawRoles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
+  const roles = rawRoles.map((role) => String(role).toLowerCase());
+  const internalRoles = ['admin', 'super_admin', 'operations', 'compliance', 'procurement_manager', 'finance_manager', 'technical_evaluator', 'auditor'];
+  const primaryRole: AppRole | null = roles.some((role) => internalRoles.includes(role))
     ? 'admin'
     : roles.includes('seller')
       ? 'seller'

@@ -18,8 +18,8 @@ export function SiteHeader() {
   const dashHref = primaryRole === "seller" ? "/console" : "/portal";
   const nav = user
     ? primaryRole === "seller"
-      ? [{ to: "/", label: "Marketplace" }, { to: "/console", label: "Enterprise Console" }, { to: "/console/events", label: "Sourcing events" }]
-      : [{ to: "/", label: "Marketplace" }, { to: "/portal", label: "Vendor Portal" }]
+      ? [{ to: "/", label: "Marketplace" }, { to: "/console", label: "Seller workspace" }, { to: "/console/events", label: "My auctions" }]
+      : [{ to: "/", label: "Marketplace" }, { to: "/portal", label: "Buyer workspace" }, { to: "/my-bids", label: "My bids" }]
     : [{ to: "/", label: "Marketplace" }];
 
   return (
@@ -69,7 +69,7 @@ export function SiteHeader() {
                 className="hidden items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-sm text-white/90 hover:bg-white/5 sm:inline-flex"
               >
                 <LayoutDashboard className="h-4 w-4" />
-                {primaryRole === "seller" ? "Seller console" : "Vendor portal"}
+                {primaryRole === "seller" ? "Seller workspace" : "Buyer workspace"}
               </Link>
               <button
                 onClick={signOut}

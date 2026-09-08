@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { cr, fmtDate } from "@/lib/enterprise";
 import { api } from "@/lib/api-client";
-import { Card, PageHead, Pill, Table } from "@/components/console/shell";
+import { Card, PageHead, Pill } from "@/components/console/shell";
 
 export const Route = createFileRoute("/console/fulfilment")({
   head: () => ({
@@ -114,45 +114,9 @@ function Fulfilment() {
       </div>
 
       <Card title="Documents & chain of custody" className="mt-4">
-        <Table head={["Document", "Event", "Issued to", "Issued", "Status"]}>
-          {[
-            [
-              "Award letter AL-341",
-              "FWD-2026-0341",
-              "Meridian Metals Pvt Ltd",
-              "Today",
-              "Acknowledged",
-            ],
-            ["Sale order SO-1187", "JAP-2026-0031", "Workforce First", "12 days ago", "Signed"],
-            ["Work order WO-556", "RFP-2026-0077", "Aegis Facility Services", "Pending", "Draft"],
-            [
-              "Gate pass GP-8892",
-              "FWD-2026-0341",
-              "Meridian Metals Pvt Ltd",
-              "Blocked",
-              "Awaiting payment",
-            ],
-            [
-              "Closure certificate CC-204",
-              "JAP-2026-0031",
-              "Workforce First",
-              "Pending",
-              "Not due",
-            ],
-          ].map((r) => (
-            <tr key={r[0]}>
-              <td className="py-3 pr-4 font-semibold">{r[0]}</td>
-              <td className="py-3 pr-4 text-xs text-muted-foreground">{r[1]}</td>
-              <td className="py-3 pr-4">{r[2]}</td>
-              <td className="py-3 pr-4 text-xs text-muted-foreground">{r[3]}</td>
-              <td className="py-3">
-                <Pill tone={r[4] === "Signed" || r[4] === "Acknowledged" ? "good" : "warn"}>
-                  {r[4]}
-                </Pill>
-              </td>
-            </tr>
-          ))}
-        </Table>
+        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          Documents appear here when returned by the fulfilment API.
+        </div>
       </Card>
     </>
   );

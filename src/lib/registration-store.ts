@@ -1,5 +1,5 @@
-// Client-side mock store for the bidder registration wizard.
-// All state persists in localStorage — no backend calls.
+// Client-side draft store for the bidder registration wizard.
+// Submitted identity and KYB state remain authoritative in the API.
 
 export type WizardStep = 1 | 2 | 3 | 4;
 

@@ -34,7 +34,7 @@ function ReportsPage() {
         <Kpi label="Participation" value={value(["participation_rate", "participationRate"])} hint="API report" />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card title="Savings and realisation" desc="No chart is rendered from local fixture data.">
+        <Card title="Savings and realisation" desc="No chart is rendered without reporting API data.">
           <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">{report && Object.keys(report).length ? "Report data is available through the API." : "No report data is available."}</div>
         </Card>
         <Card title="Vendor performance" desc="Vendor metrics require an authenticated, organisation-scoped report response.">

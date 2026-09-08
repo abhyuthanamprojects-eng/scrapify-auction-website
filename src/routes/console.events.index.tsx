@@ -13,7 +13,7 @@ import { Card, PageHead, StateBadge, Table, Pill } from "@/components/console/sh
 import { useTick } from "@/hooks/use-tick";
 
 export const Route = createFileRoute("/console/events/")({
-  loader: () => loadEvents(),
+  loader: () => loadEvents({ mine: "true" }),
   head: () => ({
     meta: [
       { title: "Sourcing Events — Auctions, RFx & Negotiations" },

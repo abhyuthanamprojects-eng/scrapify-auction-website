@@ -58,8 +58,9 @@ function VendorTeamPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState("buyer");
-  const [limit, setLimit] = useState("5000000");
+  const [limit, setLimit] = useState("");
 
   const loadMembers = async () => {
     setLoading(true);
@@ -69,20 +70,8 @@ function VendorTeamPage() {
       setMembers(list);
     } catch (err) {
       console.warn("Could not load team members:", err);
-      // Fallback sample data if empty
-      setMembers([
-        {
-          id: "TM-001",
-          name: "Amit Sinha (Primary)",
-          email: "amit@devzign.io",
-          phone: "+91 98765 43210",
-          role: "admin",
-          role_label: "Administrator",
-          status: "active",
-          created_at: "2026-08-01",
-          max_bidding_limit: 50000000,
-        },
-      ]);
+      setMembers([]);
+      setErrorMsg(err instanceof Error ? err.message : "Unable to load team members from the API.");
     } finally {
       setLoading(false);
     }
@@ -104,30 +93,23 @@ function VendorTeamPage() {
         email: email.trim(),
         phone: phone.trim() || null,
         mobile: phone.trim() || null,
+        password,
         role: role,
-        password: "password123",
         status: "active",
-        max_bidding_limit_inr: parseFloat(limit) || 5000000,
+        max_bidding_limit_inr: limit.trim() ? parseFloat(limit) : undefined,
       });
 
-      const newMember: TeamMember = res?.data || {
-        id: res?.id || `TM-${Date.now().toString().slice(-4)}`,
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        role: role,
-        role_label: role === "buyer" ? "Authorized Bidder" : role === "finance_manager" ? "Viewer / Observer" : "Administrator",
-        status: "active",
-        created_at: new Date().toISOString().split("T")[0],
-      };
+      const newMember = res?.data as TeamMember | undefined;
+      if (!newMember) throw new Error("The API did not return the created team member.");
 
       setMembers((prev) => [newMember, ...prev]);
       setIsModalOpen(false);
       setName("");
       setEmail("");
       setPhone("");
+      setPassword("");
       setRole("buyer");
-      setLimit("5000000");
+      setLimit("");
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to add team member");
     } finally {
@@ -185,7 +167,12 @@ function VendorTeamPage() {
         </Card>
         <Card className="p-4">
           <p className="text-xs font-semibold text-muted-foreground uppercase">Enterprise Bid Limit Aggregate</p>
-          <p className="mt-1 text-2xl font-extrabold text-[color:var(--auction)]">₹5.00 Cr</p>
+          <p className="mt-1 text-2xl font-extrabold text-[color:var(--auction)]">
+            {(() => {
+              const total = members.reduce((sum, member) => sum + Number(member.max_bidding_limit ?? 0), 0);
+              return total > 0 ? `₹${total.toLocaleString("en-IN")}` : "—";
+            })()}
+          </p>
         </Card>
       </div>
 
@@ -260,7 +247,7 @@ function VendorTeamPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3.5 font-mono font-bold text-[color:var(--navy)]">
-                      ₹50,00,000
+                      {m.max_bidding_limit ? `₹${Number(m.max_bidding_limit).toLocaleString("en-IN")}` : "—"}
                     </td>
                     <td className="px-4 py-3.5">
                       <Pill variant={isActive ? "success" : "muted"}>
@@ -310,7 +297,7 @@ function VendorTeamPage() {
               <input
                 type="text"
                 required
-                placeholder="e.g. Rahul Sharma"
+                placeholder="e.g. Authorized bidder"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full rounded-lg border border-border px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[color:var(--navy)]"
@@ -325,6 +312,19 @@ function VendorTeamPage() {
                 placeholder="e.g. rahul.s@domain.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-lg border border-border px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[color:var(--navy)]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[color:var(--navy)] mb-1">Initial Password *</label>
+              <input
+                type="password"
+                required
+                minLength={8}
+                placeholder="Set a temporary password (8+ characters)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-lg border border-border px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[color:var(--navy)]"
               />
             </div>

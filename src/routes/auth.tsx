@@ -43,13 +43,65 @@ function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const target = (r: string | null) => {
-    if (r && r.startsWith("/")) return r;
-    return "/dashboard";
+  const workspaceFor = (user: any) => {
+    const role = String(user?.role ?? user?.roles?.[0] ?? "").toLowerCase();
+    if (role === "seller") return "/console" as const;
+    if (role === "buyer") return "/portal" as const;
+    return null;
+  };
+
+  const target = (redirect: string | null, workspace: "/console" | "/portal") => {
+    if (!redirect || !redirect.startsWith("/")) return workspace;
+
+    const allowedPrefixes =
+      workspace === "/console"
+        ? ["/console", "/seller", "/lots"]
+        : [
+            "/portal",
+            "/dashboard",
+            "/lots",
+            "/live",
+            "/results",
+            "/my-bids",
+            "/wallet",
+            "/terms",
+            "/rfx",
+            "/inspection",
+            "/emd",
+            "/auction-register",
+            "/awards",
+            "/award",
+            "/fallback-offer",
+            "/payable-summary",
+            "/refund-tracker",
+            "/emd-ledger",
+          ];
+
+    return allowedPrefixes.some(
+      (prefix) => redirect === prefix || redirect.startsWith(`${prefix}/`),
+    )
+      ? redirect
+      : workspace;
   };
 
   useEffect(() => {
-    if (api.getToken()) navigate({ to: target(search.redirect ?? null) });
+    const token = api.getToken();
+    if (!token) return;
+
+    let active = true;
+    void api.me().then((response) => {
+      const workspace = workspaceFor(response.user ?? response.data?.user ?? response.data);
+      if (active && workspace) {
+        navigate({ to: target(search.redirect ?? null, workspace) });
+      }
+    }).catch(() => {
+      // A stale public token or an admin token must not enter a public route.
+      api.setToken(null);
+    });
+
+    return () => {
+      active = false;
+    };
   }, [navigate, search.redirect]);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -58,14 +110,37 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        await api.register({ name: fullName, email, phone, password, role });
+        const response = await api.register({ name: fullName, email, phone, password, role });
+        const workspace = workspaceFor(response.user ?? response.data?.user ?? response.data);
+        if (!workspace) {
+          api.setToken(null);
+          throw new Error("This account cannot use the public workspace.");
+        }
+        window.dispatchEvent(new CustomEvent("scrapify:auth"));
+        navigate({ to: target(search.redirect ?? null, workspace) });
+        return;
       } else {
-        await api.login(email, password);
+        const response = await api.login(email, password);
+        const workspace = workspaceFor(response.user ?? response.data?.user ?? response.data);
+        if (!workspace) {
+          api.setToken(null);
+          throw new Error(
+            "This account must sign in through the Admin Portal."
+          );
+        }
+        window.dispatchEvent(new CustomEvent("scrapify:auth"));
+        navigate({ to: target(search.redirect ?? null, workspace) });
+        return;
       }
-      window.dispatchEvent(new CustomEvent("scrapify:auth"));
-      navigate({ to: target(search.redirect ?? null) });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      const code = (err as { code?: string })?.code;
+      setError(
+        code === "ADMIN_LOGIN_NOT_ALLOWED_HERE"
+          ? "This is an internal account. Use the separate Admin Portal to sign in."
+          : err instanceof Error
+            ? err.message
+            : "Something went wrong",
+      );
     } finally {
       setBusy(false);
     }
@@ -176,6 +251,18 @@ function AuthPage() {
               </>
             )}
           </div>
+
+          {mode === "signin" && (
+            <div className="mt-4 border-t border-white/10 pt-4 text-center text-xs text-white/50">
+              Internal staff?{" "}
+              <a
+                href="https://admin.scrapifyauctions.com/login"
+                className="font-semibold text-[color:var(--gold-soft)] hover:underline"
+              >
+                Open Admin Portal
+              </a>
+            </div>
+          )}
         </div>
       </div>
     </div>

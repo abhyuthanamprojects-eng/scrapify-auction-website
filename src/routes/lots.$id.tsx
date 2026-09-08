@@ -23,6 +23,7 @@ import { useTick } from "@/hooks/use-tick";
 import { useRegistration } from "@/hooks/use-registration";
 import { useFlow } from "@/hooks/use-flow";
 import { VendorStatusBanner } from "@/components/vendor-status-banner";
+import { useAuth } from "@/hooks/use-auth";
 import {
   EMD_LABEL,
   confirmEmd,
@@ -93,6 +94,7 @@ export const Route = createFileRoute("/lots/$id")({
 
 function LotDetail() {
   const { lot } = Route.useLoaderData() as { lot: Lot };
+  const { primaryRole } = useAuth();
   useTick(1000);
   const t = timeLeft(lot.endsAt);
   const [amount, setAmount] = useState(lot.currentBid + lot.increment);
@@ -289,6 +291,24 @@ function LotDetail() {
 
         {/* Right: bid panel */}
         <aside className="lg:sticky lg:top-24 lg:self-start">
+          {primaryRole === "seller" ? (
+            <div className="card-soft p-6">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <ShieldCheck className="h-4 w-4 text-[color:var(--auction)]" /> Seller view
+              </div>
+              <h2 className="mt-3 font-display text-xl font-extrabold">Public auction information</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Sellers cannot participate or submit bids. Manage only auctions owned by your account from the Seller workspace.
+              </p>
+              <Link
+                to="/console"
+                className="mt-5 block w-full rounded-full bg-[color:var(--navy)] py-2.5 text-center text-sm font-bold text-white"
+              >
+                Open Seller workspace
+              </Link>
+            </div>
+          ) : (
+            <>
           <div className="card-soft overflow-hidden">
             <div className="bg-[color:var(--navy)] p-6 text-white">
               <div className="flex items-center justify-between text-xs uppercase tracking-wider text-white/70">
@@ -469,6 +489,8 @@ function LotDetail() {
               see full activity and place bids.
             </span>
           </div>
+            </>
+          )}
         </aside>
       </div>
     </div>

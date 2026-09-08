@@ -4,21 +4,54 @@ import {
   FORMAT_LABEL,
   cr,
   fmtDate,
-  getEvent,
   inr,
   settlement,
   timeLeft,
   type AuctionEvent,
   type LineItem,
 } from "@/lib/enterprise";
+import { loadEvent } from "@/lib/enterprise-api";
+import { api } from "@/lib/api-client";
 import { Card, PageHead, Pill, StateBadge, Table } from "@/components/console/shell";
 import { useTick } from "@/hooks/use-tick";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/portal/events/$id")({
-  loader: ({ params }) => {
-    const event = getEvent(params.id);
+  loader: async ({ params }) => {
+    const event = await loadEvent(params.id);
     if (!event) throw notFound();
-    return { event };
+
+    const [meResponse, bidsResponse, emdResponse] = await Promise.all([
+      api.me(),
+      api.getMyBids(),
+      api.getEmd({ auction: params.id }),
+    ]);
+    const user = meResponse?.user ?? meResponse?.data?.user ?? meResponse?.data ?? {};
+    const ownVendorId = String(user?.vendor?.code ?? user?.vendor_id ?? "");
+    const bidRows = [
+      ...(bidsResponse?.active ?? []),
+      ...(bidsResponse?.won ?? []),
+      ...(bidsResponse?.lost ?? []),
+    ];
+    const hasOwnBid = bidRows.some(
+      (row: any) => String(row.auction_id ?? row.auction?.code) === params.id,
+    );
+    const emdRows = Array.isArray(emdResponse?.data) ? emdResponse.data : [];
+    const hasOwnEmd = emdRows.some(
+      (row: any) => String(row.auction_id ?? row.auction?.code) === params.id,
+    );
+    const ownParticipantId = event.participants.find((participant) => String(participant.id) === ownVendorId)?.id
+      ?? bidRows.find((row: any) => String(row.auction_id ?? row.auction?.code) === params.id)?.vendor_id
+      ?? null;
+    const ownBids = bidRows.filter(
+      (row: any) => String(row.auction_id ?? row.auction?.code) === params.id,
+    );
+
+    // A public auction URL is not an invitation. Only a buyer with an
+    // authenticated participation record may enter this workspace.
+    if (!hasOwnBid && !hasOwnEmd) throw notFound();
+
+    return { event, ownParticipantId, ownBids, hasOwnEmd };
   },
   head: ({ loaderData }) => {
     const e = loaderData?.event;
@@ -61,23 +94,40 @@ export const Route = createFileRoute("/portal/events/$id")({
 type Submission = { at: number; label: string; amount?: number };
 
 function BidderRoom() {
-  const { event } = Route.useLoaderData();
+  const { event, ownParticipantId, ownBids, hasOwnEmd } = Route.useLoaderData();
   useTick(1000);
 
-  const me = event.participants[0];
+  const me = event.participants.find((participant) => String(participant.id) === String(ownParticipantId));
   const [accepted, setAccepted] = useState(me?.accepted ?? false);
   const [terms, setTerms] = useState(me?.termsAccepted ?? false);
-  const [emd, setEmd] = useState(!event.emdRequired || me?.emd === "confirmed");
+  const [emd, setEmd] = useState(!event.emdRequired || hasOwnEmd || me?.emd === "confirmed");
   const [log, setLog] = useState<Submission[]>(
-    event.bids
-      .filter((b) => b.participantId === me?.id)
-      .map((b) => ({ at: b.at, label: "Bid submitted", amount: b.amount })),
+    ownBids.map((row: any) => ({
+      at: Date.parse(row.created_at ?? row.at ?? "") || Date.now(),
+      label: "Bid submitted",
+      amount: Number(row.my_bid_inr ?? row.amount ?? 0),
+    })),
   );
   const [tab, setTab] = useState<"bid" | "lots" | "terms" | "negotiation" | "activity">("bid");
 
   const push = (s: Submission) => setLog((l) => [s, ...l]);
   const gateOk = accepted && terms && emd && me?.qualification !== "blocked";
   const closed = event.endAt <= Date.now() || !["live", "paused", "published", "invited"].includes(event.state);
+  const submit = async (submission: Submission) => {
+    const apiBackedFormat = ["english", "bafo", "dutch", "japanese"].includes(event.format);
+    if (submission.amount != null && apiBackedFormat) {
+      try {
+        await api.placeBid(event.id, {
+          amount: submission.amount,
+          idempotency_key: `${event.id}-${Date.now()}`,
+        });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Bid submission failed");
+        return;
+      }
+    }
+    push(submission);
+  };
 
   const myBest = log.find((l) => typeof l.amount === "number");
   const rank = useMemo(() => {
@@ -128,8 +178,10 @@ function BidderRoom() {
                 label="Accept the invitation"
                 action="Accept invitation"
                 onDo={() => {
-                  setAccepted(true);
-                  push({ at: Date.now(), label: "Invitation accepted" });
+                  void api.acceptAuctionTerms(event.id).then(() => {
+                    setAccepted(true);
+                    push({ at: Date.now(), label: "Invitation accepted" });
+                  }).catch((error) => toast.error(error instanceof Error ? error.message : "Unable to accept invitation"));
                 }}
               />
               <Gate
@@ -137,8 +189,10 @@ function BidderRoom() {
                 label="Accept terms & conditions"
                 action="Read & accept terms"
                 onDo={() => {
-                  setTerms(true);
-                  push({ at: Date.now(), label: "Terms accepted" });
+                  void api.acceptAuctionTerms(event.id).then(() => {
+                    setTerms(true);
+                    push({ at: Date.now(), label: "Terms accepted" });
+                  }).catch((error) => toast.error(error instanceof Error ? error.message : "Unable to accept terms"));
                 }}
               />
               <Gate
@@ -150,8 +204,10 @@ function BidderRoom() {
                 }
                 action="Pay EMD"
                 onDo={() => {
-                  setEmd(true);
-                  push({ at: Date.now(), label: `EMD ${cr(event.emdAmount)} confirmed` });
+                  void api.lockEmd(event.id).then(() => {
+                    setEmd(true);
+                    push({ at: Date.now(), label: `EMD ${cr(event.emdAmount)} confirmed` });
+                  }).catch((error) => toast.error(error instanceof Error ? error.message : "Unable to lock EMD"));
                 }}
               />
               {me?.qualification === "blocked" && (
@@ -180,7 +236,7 @@ function BidderRoom() {
 
       <div className="mt-4 space-y-4">
         {tab === "bid" && (
-          <FormatPanel event={event} disabled={!gateOk || closed} onSubmit={push} myBest={myBest?.amount} />
+          <FormatPanel event={event} disabled={!gateOk || closed} onSubmit={submit} myBest={myBest?.amount} />
         )}
 
         {tab === "lots" && (

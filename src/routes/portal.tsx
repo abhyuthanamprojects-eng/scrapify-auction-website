@@ -14,10 +14,10 @@ function PortalLayout() {
 
   const VENDOR_NAV = [
     { to: "/portal", label: "My Invitations & Bids", exact: true },
-    { to: "/portal/orders", label: "Fulfilment Orders & Gate Passes" },
-    { to: "/portal/team", label: "Team & Authorized Bidders" },
-    { to: "/portal/documents", label: "Document Vault" },
-    { to: "/portal/performance", label: "Scorecard & Tier" },
+    { to: "/portal/orders", label: "My Orders & Gate Passes" },
+    { to: "/portal/team", label: "My Team" },
+    { to: "/portal/documents", label: "My Documents" },
+    { to: "/portal/performance", label: "My Scorecard" },
   ];
 
   const companyName = user?.vendor?.company_name || user?.organization?.name || user?.name || user?.email || "Vendor Workspace";
@@ -32,16 +32,16 @@ function PortalLayout() {
               <img src="/scrapify-auction-app-icon.png" alt="Scrapify Portal" className="h-full w-full object-contain" />
             </span>
             <span>
-              Scrapify<span className="text-[color:var(--gold-soft)]">Portal</span>
-              <span className="block text-[9px] font-medium tracking-wider uppercase text-white/50">
-                Verified Vendor Workspace
+            Scrapify<span className="text-[color:var(--gold-soft)]">Buyer</span>
+            <span className="block text-[9px] font-medium tracking-wider uppercase text-white/50">
+                Buyer Workspace
               </span>
             </span>
           </Link>
 
           <span className="ml-auto hidden items-center gap-1.5 text-xs text-white/80 sm:flex bg-white/10 px-3 py-1 rounded-full">
             <ShieldCheck className={`h-3.5 w-3.5 ${isVerified ? "text-[color:var(--success)]" : "text-[color:var(--gold-soft)]"}`} />
-            {companyName} {isVerified ? "• Verified Tier" : "• Pending Review"}
+            {companyName} {isVerified ? "• Verified" : "• Verification pending"}
           </span>
 
           <Link

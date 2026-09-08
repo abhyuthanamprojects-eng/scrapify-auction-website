@@ -49,14 +49,7 @@ interface DocumentItem {
 }
 
 function VendorDocumentsPage() {
-  const [docs, setDocs] = useState<DocumentItem[]>([
-    { id: "DOC-GST-01", name: "GST Registration Certificate (REG-06)", type: "Tax & Statutory", status: "verified", size: "1.4 MB", expiry: "Permanent", format: "PDF", uploadedAt: "12 Aug 2026" },
-    { id: "DOC-PAN-01", name: "Company PAN Card", type: "Tax & Statutory", status: "verified", size: "840 KB", expiry: "Permanent", format: "PDF", uploadedAt: "12 Aug 2026" },
-    { id: "DOC-PCB-01", name: "Pollution Control Board Consent to Operate", type: "Environmental & Safety", status: "expiring_soon", size: "3.8 MB", expiry: "15-Sep-2026", format: "PDF", uploadedAt: "05 Jul 2026" },
-    { id: "DOC-ISO-01", name: "ISO 9001:2015 Quality Certificate", type: "Technical", status: "under_review", size: "2.2 MB", expiry: "12-Dec-2027", format: "PDF", uploadedAt: "20 Aug 2026" },
-    { id: "DOC-BNK-01", name: "Cancelled Cheque & Penny-Drop Verification", type: "Financial", status: "verified", size: "1.1 MB", expiry: "Verified", format: "PDF", uploadedAt: "10 Aug 2026" },
-    { id: "DOC-POA-01", name: "Board Resolution / Power of Attorney", type: "Legal", status: "rejected", size: "1.9 MB", expiry: "Missing seal", reason: "Missing 2nd director counter-signature and corporate seal.", format: "PDF", uploadedAt: "18 Aug 2026" },
-  ]);
+  const [docs] = useState<DocumentItem[]>([]);
 
   // Viewer State
   const [viewDoc, setViewDoc] = useState<DocumentItem | null>(null);
@@ -97,51 +90,7 @@ function VendorDocumentsPage() {
 
   const handleSaveDocument = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile && !replaceTarget) return;
-
-    const fileSizeStr = selectedFile
-      ? selectedFile.size > 1024 * 1024
-        ? `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`
-        : `${(selectedFile.size / 1024).toFixed(0)} KB`
-      : "1.2 MB";
-
-    const formatStr = selectedFile ? selectedFile.name.split(".").pop()?.toUpperCase() || "PDF" : "PDF";
-
-    if (replaceTarget) {
-      setDocs((prev) =>
-        prev.map((d) =>
-          d.id === replaceTarget.id
-            ? {
-                ...d,
-                size: fileSizeStr,
-                format: formatStr,
-                status: "under_review",
-                reason: undefined,
-                uploadedAt: "Just now",
-              }
-            : d
-        )
-      );
-    } else {
-      const newId = `DOC-CUSTOM-0${docs.length + 1}`;
-      const newDoc: DocumentItem = {
-        id: newId,
-        name: docName || selectedFile?.name || "Uploaded Certificate",
-        type: docCategory,
-        status: "under_review",
-        size: fileSizeStr,
-        expiry: "Verification Pending",
-        format: formatStr,
-        uploadedAt: "Just now",
-      };
-      setDocs((prev) => [newDoc, ...prev]);
-    }
-
-    setUploadSuccess(true);
-    setTimeout(() => {
-      setIsUploadOpen(false);
-      setUploadSuccess(false);
-    }, 1200);
+    toast.error("Document upload is unavailable until the document API is connected.");
   };
 
   return (
@@ -166,7 +115,11 @@ function VendorDocumentsPage() {
 
       <Card title="Statutory & Compliance Certificates" desc="Tier 1 Vendor Clearance Status">
         <Table head={["Document Name", "Category", "Size / Expiry", "Verification Status", "Actions"]}>
-          {docs.map((d) => (
+          {docs.length === 0 ? (
+            <tr key="empty-documents">
+              <td colSpan={5} className="py-8 text-center text-sm text-muted-foreground">No documents are available from the API.</td>
+            </tr>
+          ) : docs.map((d) => (
             <tr key={d.id}>
               <td className="py-3">
                 <div className="font-bold text-foreground">{d.name}</div>

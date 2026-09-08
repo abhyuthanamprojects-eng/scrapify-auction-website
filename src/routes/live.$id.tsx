@@ -13,6 +13,7 @@ import {
 import { SiteHeader } from "@/components/site-header";
 import { getLot, formatINR, type Lot } from "@/lib/auction-data";
 import { api } from "@/lib/api-client";
+import { requireRole } from "@/lib/route-guards";
 import { useTick } from "@/hooks/use-tick";
 import { useFlow, useHydrated } from "@/hooks/use-flow";
 import { useRegistration } from "@/hooks/use-registration";
@@ -24,6 +25,8 @@ import {
 } from "@/lib/customer-flow";
 
 export const Route = createFileRoute("/live/$id")({
+  ssr: false,
+  beforeLoad: ({ location }) => requireRole(location, ["buyer"]),
   loader: async ({ params }) => {
     const lot = await getLot(params.id);
     return { lot };

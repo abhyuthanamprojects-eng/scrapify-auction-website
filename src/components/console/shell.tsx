@@ -115,7 +115,7 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
           </Link>
 
           <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-6">
-            {NAV.map(({ to, label, Icon, exact }) => {
+            {NAV.filter(({ to }) => ["/console", "/console/events", "/console/orders", "/console/disputes"].some((path) => to === path)).map(({ to, label, Icon, exact }) => {
               const active = exact ? pathname === to : pathname.startsWith(to);
               return (
                 <Link

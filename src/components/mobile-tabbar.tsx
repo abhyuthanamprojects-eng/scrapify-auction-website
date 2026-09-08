@@ -7,13 +7,13 @@ import { useAuth } from "@/hooks/use-auth";
  * header navigation takes over.
  */
 export function MobileTabBar() {
-  const { user } = useAuth();
+  const { user, primaryRole } = useAuth();
   const { pathname } = useLocation();
 
   const tabs = user
     ? [
         { to: "/", label: "Market", Icon: Home },
-        { to: user.role === "seller" ? "/console" : "/portal", label: user.role === "seller" ? "Console" : "Portal", Icon: Gavel },
+        { to: primaryRole === "seller" ? "/console" : "/portal", label: primaryRole === "seller" ? "Console" : "Portal", Icon: Gavel },
         { to: "/wallet", label: "Wallet", Icon: Wallet },
         { to: "/notifications", label: "Alerts", Icon: Bell },
       ]
@@ -26,7 +26,8 @@ export function MobileTabBar() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
       <ul className="mx-auto flex max-w-md items-stretch">
-        {tabs.map(({ to, label, Icon, badge }) => {
+        {tabs.map(({ to, label, Icon }) => {
+          const badge: string | number | undefined = undefined;
           const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
           return (
             <li key={to} className="flex-1">

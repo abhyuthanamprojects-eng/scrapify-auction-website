@@ -66,7 +66,7 @@ function BuyerDashboard() {
     .reduce((s2, row) => s2 + Number(row.amount_inr ?? row.amount ?? 0), 0);
 
   if (loading) return <FullPageLoading />;
-  if (primaryRole === "seller") return <Navigate to="/seller" />;
+  if (primaryRole === "seller") return <Navigate to="/console" />;
 
   return (
     <div className="min-h-screen bg-background">

@@ -27,7 +27,7 @@ function SellerDashboard() {
         Loading…
       </div>
     );
-  if (primaryRole !== "seller" && primaryRole !== "admin")
+  if (primaryRole !== "seller")
     return <Navigate to="/dashboard" />;
 
   return (

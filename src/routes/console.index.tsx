@@ -19,7 +19,7 @@ function ConsoleDashboard() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([api.getAuctions({ per_page: "100" }), api.getOrders({ per_page: "100" })])
+    Promise.all([api.getAuctions({ per_page: "100", mine: "true" }), api.getOrders({ per_page: "100" })])
       .then(([auctions, orders]) => {
         if (!active) return;
         const events = rows(auctions);
