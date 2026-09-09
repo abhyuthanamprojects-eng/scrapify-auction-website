@@ -2,10 +2,37 @@
 // Business records are loaded from the API; no production fixture data lives here.
 
 export type EventDirection = "forward" | "reverse";
-export type EventFormat = string;
+export type EventFormat =
+  | "english"
+  | "sealed"
+  | "dutch"
+  | "japanese"
+  | "bafo"
+  | "rfq"
+  | "rfi"
+  | "rfp"
+  | "hybrid";
 export type EventState = string;
-export const FORMAT_LABEL: Record<string, string> = {};
-export const STATE_LABEL: Record<string, string> = {};
+export const FORMAT_LABEL: Record<EventFormat, string> = {
+  english: "English forward auction",
+  sealed: "Sealed bid",
+  dutch: "Dutch auction",
+  japanese: "Japanese auction",
+  bafo: "Best and final offer",
+  rfq: "Request for quotation",
+  rfi: "Request for information",
+  rfp: "Request for proposal",
+  hybrid: "Hybrid sourcing event",
+};
+export const STATE_LABEL: Record<string, string> = {
+  draft: "Draft",
+  scheduled: "Scheduled",
+  live: "Live",
+  active: "Live",
+  closed: "Closed",
+  awarded: "Awarded",
+  cancelled: "Cancelled",
+};
 export const CATEGORIES: readonly string[] = [];
 export type Category = string;
 export const CATEGORY_ATTRIBUTES: Record<string, string[]> = {};

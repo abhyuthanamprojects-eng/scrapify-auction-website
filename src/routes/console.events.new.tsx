@@ -270,6 +270,31 @@ function CreateEventWizard() {
             title="Step 2 — Auction & Event Format"
             desc="Select the bidding mechanism and dynamic pricing rules"
           >
+            <div className="mb-5">
+              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Auction direction
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {([
+                  ["forward", "Forward auction", "Buyers compete by offering the highest price."],
+                  ["reverse", "Reverse auction", "Sellers compete by offering the lowest price."],
+                ] as const).map(([value, label, description]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setDirection(value)}
+                    className={`rounded-xl border p-4 text-left transition-all ${
+                      direction === value
+                        ? "border-[color:var(--navy)] bg-[color:var(--navy)]/10 font-bold text-[color:var(--navy)]"
+                        : "border-border hover:bg-muted/50"
+                    }`}
+                  >
+                    <div className="text-sm font-bold">{label}</div>
+                    <div className="mt-1 text-xs font-normal text-muted-foreground">{description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="grid gap-3 sm:grid-cols-3">
               {(
                 [

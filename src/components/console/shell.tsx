@@ -102,7 +102,7 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto flex max-w-[1600px]">
+      <div className="flex w-full">
         {/* Left Sidebar */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-[color:var(--navy)] text-white lg:flex">
           <Link
