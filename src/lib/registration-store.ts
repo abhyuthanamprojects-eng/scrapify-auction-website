@@ -15,6 +15,7 @@ export const MATERIALS = [
 ] as const;
 
 export type RegistrationState = {
+  role: "buyer" | "seller";
   step: WizardStep;
   completed: Record<WizardStep, boolean>;
   // Step 1
@@ -58,6 +59,7 @@ export type RegistrationState = {
 const KEY = "scrapify.registration.v1";
 
 export const emptyRegistration = (): RegistrationState => ({
+  role: "buyer",
   step: 1,
   completed: { 1: false, 2: false, 3: false, 4: false },
   mobile: "",

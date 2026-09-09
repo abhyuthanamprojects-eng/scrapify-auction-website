@@ -30,7 +30,11 @@ export async function requireRole(location: { href: string }, allowed: string[])
     return { user };
   } catch (error) {
     if (error && typeof error === "object" && "routerCode" in error) throw error;
-    api.setToken(null);
+    const status = (error as { status?: number })?.status;
+    if (status === 403) {
+      throw redirect({ to: "/access-denied", search: { from: location.href } });
+    }
+    if (status === 401) api.setToken(null);
     throw redirect({ to: "/auth", search: { mode: "signin", redirect: location.href } });
   }
 }

@@ -47,6 +47,12 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
     Array<{ type: string; id: string; title: string; link: string }>
   >([]);
   const [notifOpen, setNotifOpen] = useState(false);
+  const signOut = async () => {
+    await api.logout();
+    window.history.replaceState({}, "", "/auth?mode=signin");
+    window.dispatchEvent(new CustomEvent("scrapify:auth"));
+    window.location.assign("/auth?mode=signin");
+  };
 
   useEffect(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -201,6 +207,9 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
                 <span className="font-medium text-xs">{user?.name || user?.email || "Signed-in user"}</span>
                 <span className="text-[11px] text-muted-foreground">Seller workspace</span>
               </div>
+              <button onClick={signOut} className="rounded-full border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted" aria-label="Log out">
+                Log out
+              </button>
             </div>
           </header>
 

@@ -101,10 +101,10 @@ class ScrapifyApiClient {
   }
 
   /* ---------------- Auth ---------------- */
-  async login(identifier: string, password: string) {
+  async login(identifier: string, password: string, loginContext?: "buyer" | "seller") {
     const res = await this.request<any>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ identifier, password }),
+      body: JSON.stringify({ identifier, password, ...(loginContext ? { login_context: loginContext } : {}) }),
     });
     if (res.token) {
       this.setToken(res.token);

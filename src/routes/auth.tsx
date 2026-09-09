@@ -6,6 +6,7 @@ import { api } from "@/lib/api-client";
 
 const searchSchema = z.object({
   mode: z.enum(["signin", "signup"]).optional(),
+  role: z.enum(["buyer", "seller"]).optional(),
   redirect: z.string().optional(),
 });
 
@@ -35,7 +36,7 @@ function AuthPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const [mode, setMode] = useState<"signin" | "signup">(search.mode ?? "signin");
-  const [role, setRole] = useState<Role>("buyer");
+  const [role, setRole] = useState<Role>(search.role ?? "buyer");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -110,7 +111,7 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        const response = await api.register({ name: fullName, email, phone, password, role });
+        const response = await api.register({ name: fullName, email, phone, password, registration_type: role });
         const workspace = workspaceFor(response.user ?? response.data?.user ?? response.data);
         if (!workspace) {
           api.setToken(null);
@@ -120,7 +121,7 @@ function AuthPage() {
         navigate({ to: target(search.redirect ?? null, workspace) });
         return;
       } else {
-        const response = await api.login(email, password);
+        const response = await api.login(email, password, role);
         const workspace = workspaceFor(response.user ?? response.data?.user ?? response.data);
         if (!workspace) {
           api.setToken(null);
@@ -135,7 +136,9 @@ function AuthPage() {
     } catch (err) {
       const code = (err as { code?: string })?.code;
       setError(
-        code === "ADMIN_LOGIN_NOT_ALLOWED_HERE"
+      code === "ROLE_CONTEXT_MISMATCH"
+          ? `This account is registered as a ${role === "buyer" ? "Seller" : "Buyer"}. Please use ${role === "buyer" ? "Seller" : "Buyer"} Login.`
+          : code === "ADMIN_LOGIN_NOT_ALLOWED_HERE"
           ? "This is an internal account. Use the separate Admin Portal to sign in."
           : err instanceof Error
             ? err.message
@@ -158,37 +161,22 @@ function AuthPage() {
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur">
           <h1 className="font-display text-2xl font-extrabold">
-            {mode === "signin" ? "Welcome back" : "Create your account"}
+            {mode === "signin" ? `${role === "buyer" ? "Buyer" : "Seller"} Sign In` : "Create your account"}
           </h1>
           <p className="mt-1 text-sm text-white/60">
             {mode === "signin"
-              ? "Sign in to bid or manage your lots."
+              ? role === "buyer" ? "Sign in to participate in auctions and manage your bids." : "Sign in to create and manage your auctions."
               : "Choose buyer to bid, or seller to list scrap."}
           </p>
 
-          {mode === "signup" && (
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              {(["buyer", "seller"] as Role[]).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRole(r)}
-                  className={`rounded-lg border px-3 py-3 text-left transition-colors ${
-                    role === r
-                      ? "border-[color:var(--auction)] bg-[color:var(--auction)]/10"
-                      : "border-white/10 hover:bg-white/5"
-                  }`}
-                >
-                  <div className="font-display text-sm font-bold capitalize">{r}</div>
-                  <div className="text-xs text-white/60">
-                    {r === "buyer"
-                      ? "Bid on live scrap lots"
-                      : "List and sell scrap"}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            {(["buyer", "seller"] as Role[]).map((r) => (
+              <button key={r} type="button" onClick={() => setRole(r)} className={`rounded-lg border px-3 py-3 text-left transition-colors ${role === r ? "border-[color:var(--auction)] bg-[color:var(--auction)]/10" : "border-white/10 hover:bg-white/5"}`}>
+                <div className="font-display text-sm font-bold capitalize">{mode === "signin" ? `${r} Login` : `Register as ${r}`}</div>
+                <div className="text-xs text-white/60">{r === "buyer" ? "Participate in auctions" : "Create and manage auctions"}</div>
+              </button>
+            ))}
+          </div>
 
           <form onSubmit={onSubmit} className="mt-5 space-y-3">
             {mode === "signup" && (
@@ -224,7 +212,7 @@ function AuthPage() {
               disabled={busy}
               className="w-full rounded-full bg-[color:var(--auction)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(249,115,22,0.7)] transition-colors hover:brightness-110 disabled:opacity-60"
             >
-              {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+              {busy ? "Please wait…" : mode === "signin" ? `Sign in as ${role}` : `Create ${role} account`}
             </button>
           </form>
 

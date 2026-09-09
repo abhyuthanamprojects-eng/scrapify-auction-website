@@ -53,7 +53,8 @@ export const Route = createFileRoute("/console/events/$id")({
     const [event, meResponse] = await Promise.all([loadEvent(params.id), api.me()]);
     if (!event) throw notFound();
     const user = meResponse?.user ?? meResponse?.data?.user ?? meResponse?.data;
-    if (event.ownerUserId != null && String(event.ownerUserId) !== String(user?.id)) {
+    const currentUserId = user?.database_id ?? user?.id;
+    if (event.ownerUserId != null && String(event.ownerUserId) !== String(currentUserId)) {
       throw notFound();
     }
     return { event };

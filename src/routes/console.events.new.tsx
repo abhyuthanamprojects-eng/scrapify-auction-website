@@ -32,7 +32,10 @@ export const Route = createFileRoute("/console/events/new")({
       },
     ],
   }),
-  loader: async () => Promise.all([api.getCategories(), api.getVendors({ per_page: "100" })]),
+  // Sellers can create auctions but do not have vendor-directory permission.
+  // Load the public category catalog only; invitations are an optional
+  // follow-up action available to authorized staff.
+  loader: async () => [await api.getCategories(), { data: [] }],
   component: CreateEventWizard,
 });
 
@@ -138,7 +141,7 @@ function CreateEventWizard() {
         ok: lines.some((l) => l.description && l.quantity),
       },
       { label: "Reserve / Target Baseline", ok: Number(baseline) > 0 },
-      { label: "Minimum 2 Invited Participants", ok: selectedVendors.length >= 2 },
+      { label: "Participants (optional for draft)", ok: true },
       { label: "Commercial Terms Configured", ok: true },
     ],
     [title, lines, baseline, selectedVendors],
@@ -193,7 +196,8 @@ function CreateEventWizard() {
           }),
         );
       }
-      await api.publishAuction(code);
+      // Keep the seller's first submission as a draft. Publishing is a
+      // separate approval-gated lifecycle action.
       setPublished(true);
       navigate({ to: "/console/events" });
     } catch (error) {

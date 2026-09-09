@@ -9,78 +9,52 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TermsRouteImport } from './routes/terms'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as PortalRouteImport } from './routes/portal'
-import { Route as ContactRouteImport } from './routes/contact'
-import { Route as ConsoleRouteImport } from './routes/console'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AccessDeniedRouteImport } from './routes/access-denied'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PortalIndexRouteImport } from './routes/portal.index'
-import { Route as ConsoleIndexRouteImport } from './routes/console.index'
-import { Route as ResultsIdRouteImport } from './routes/results.$id'
-import { Route as PortalTeamRouteImport } from './routes/portal.team'
-import { Route as PortalPerformanceRouteImport } from './routes/portal.performance'
-import { Route as PortalOrdersRouteImport } from './routes/portal.orders'
-import { Route as PortalDocumentsRouteImport } from './routes/portal.documents'
-import { Route as LotsIdRouteImport } from './routes/lots.$id'
-import { Route as LiveIdRouteImport } from './routes/live.$id'
-import { Route as JoinTokenRouteImport } from './routes/join.$token'
-import { Route as ConsoleVendorsRouteImport } from './routes/console.vendors'
-import { Route as ConsoleReportsRouteImport } from './routes/console.reports'
-import { Route as ConsoleOrganisationRouteImport } from './routes/console.organisation'
-import { Route as ConsoleOrdersRouteImport } from './routes/console.orders'
-import { Route as ConsoleFulfilmentRouteImport } from './routes/console.fulfilment'
-import { Route as ConsoleFinanceRouteImport } from './routes/console.finance'
-import { Route as ConsoleDisputesRouteImport } from './routes/console.disputes'
-import { Route as ConsoleAuditRouteImport } from './routes/console.audit'
-import { Route as ConsoleApprovalsRouteImport } from './routes/console.approvals'
-import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
-import { Route as AuthenticatedSellerRouteImport } from './routes/_authenticated/seller'
-import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AccessDeniedRouteImport } from './routes/access-denied'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ConsoleRouteImport } from './routes/console'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as PortalRouteImport } from './routes/portal'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthenticatedBusinessVerificationRouteImport } from './routes/_authenticated/business-verification'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedSellerRouteImport } from './routes/_authenticated/seller'
+import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
+import { Route as ConsoleIndexRouteImport } from './routes/console.index'
+import { Route as ConsoleApprovalsRouteImport } from './routes/console.approvals'
+import { Route as ConsoleAuditRouteImport } from './routes/console.audit'
+import { Route as ConsoleDisputesRouteImport } from './routes/console.disputes'
+import { Route as ConsoleFinanceRouteImport } from './routes/console.finance'
+import { Route as ConsoleFulfilmentRouteImport } from './routes/console.fulfilment'
+import { Route as ConsoleOrdersRouteImport } from './routes/console.orders'
+import { Route as ConsoleOrganisationRouteImport } from './routes/console.organisation'
+import { Route as ConsoleReportsRouteImport } from './routes/console.reports'
+import { Route as ConsoleVendorsRouteImport } from './routes/console.vendors'
+import { Route as JoinTokenRouteImport } from './routes/join.$token'
+import { Route as LiveIdRouteImport } from './routes/live.$id'
+import { Route as LotsIdRouteImport } from './routes/lots.$id'
+import { Route as PortalIndexRouteImport } from './routes/portal.index'
+import { Route as PortalDocumentsRouteImport } from './routes/portal.documents'
+import { Route as PortalOrdersRouteImport } from './routes/portal.orders'
+import { Route as PortalPerformanceRouteImport } from './routes/portal.performance'
+import { Route as PortalTeamRouteImport } from './routes/portal.team'
+import { Route as ResultsIdRouteImport } from './routes/results.$id'
 import { Route as ConsoleEventsIndexRouteImport } from './routes/console.events.index'
-import { Route as PortalEventsIdRouteImport } from './routes/portal.events.$id'
-import { Route as ConsoleEventsNewRouteImport } from './routes/console.events.new'
 import { Route as ConsoleEventsIdRouteImport } from './routes/console.events.$id'
+import { Route as ConsoleEventsNewRouteImport } from './routes/console.events.new'
+import { Route as PortalEventsIdRouteImport } from './routes/portal.events.$id'
 
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortalRoute = PortalRouteImport.update({
-  id: '/portal',
-  path: '/portal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContactRoute = ContactRouteImport.update({
-  id: '/contact',
-  path: '/contact',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConsoleRoute = ConsoleRouteImport.update({
-  id: '/console',
-  path: '/console',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccessDeniedRoute = AccessDeniedRouteImport.update({
@@ -88,118 +62,50 @@ const AccessDeniedRoute = AccessDeniedRouteImport.update({
   path: '/access-denied',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ConsoleRoute = ConsoleRouteImport.update({
+  id: '/console',
+  path: '/console',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PortalIndexRoute = PortalIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => PortalRoute,
-} as any)
-const ConsoleIndexRoute = ConsoleIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ConsoleRoute,
-} as any)
-const ResultsIdRoute = ResultsIdRouteImport.update({
-  id: '/results/$id',
-  path: '/results/$id',
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PortalTeamRoute = PortalTeamRouteImport.update({
-  id: '/team',
-  path: '/team',
-  getParentRoute: () => PortalRoute,
-} as any)
-const PortalPerformanceRoute = PortalPerformanceRouteImport.update({
-  id: '/performance',
-  path: '/performance',
-  getParentRoute: () => PortalRoute,
-} as any)
-const PortalOrdersRoute = PortalOrdersRouteImport.update({
-  id: '/orders',
-  path: '/orders',
-  getParentRoute: () => PortalRoute,
-} as any)
-const PortalDocumentsRoute = PortalDocumentsRouteImport.update({
-  id: '/documents',
-  path: '/documents',
-  getParentRoute: () => PortalRoute,
-} as any)
-const LotsIdRoute = LotsIdRouteImport.update({
-  id: '/lots/$id',
-  path: '/lots/$id',
+const PortalRoute = PortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LiveIdRoute = LiveIdRouteImport.update({
-  id: '/live/$id',
-  path: '/live/$id',
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const JoinTokenRoute = JoinTokenRouteImport.update({
-  id: '/join/$token',
-  path: '/join/$token',
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ConsoleVendorsRoute = ConsoleVendorsRouteImport.update({
-  id: '/vendors',
-  path: '/vendors',
-  getParentRoute: () => ConsoleRoute,
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const ConsoleReportsRoute = ConsoleReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => ConsoleRoute,
-} as any)
-const ConsoleOrganisationRoute = ConsoleOrganisationRouteImport.update({
-  id: '/organisation',
-  path: '/organisation',
-  getParentRoute: () => ConsoleRoute,
-} as any)
-const ConsoleOrdersRoute = ConsoleOrdersRouteImport.update({
-  id: '/orders',
-  path: '/orders',
-  getParentRoute: () => ConsoleRoute,
-} as any)
-const ConsoleFulfilmentRoute = ConsoleFulfilmentRouteImport.update({
-  id: '/fulfilment',
-  path: '/fulfilment',
-  getParentRoute: () => ConsoleRoute,
-} as any)
-const ConsoleFinanceRoute = ConsoleFinanceRouteImport.update({
-  id: '/finance',
-  path: '/finance',
-  getParentRoute: () => ConsoleRoute,
-} as any)
-const ConsoleDisputesRoute = ConsoleDisputesRouteImport.update({
-  id: '/disputes',
-  path: '/disputes',
-  getParentRoute: () => ConsoleRoute,
-} as any)
-const ConsoleAuditRoute = ConsoleAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => ConsoleRoute,
-} as any)
-const ConsoleApprovalsRoute = ConsoleApprovalsRouteImport.update({
-  id: '/approvals',
-  path: '/approvals',
-  getParentRoute: () => ConsoleRoute,
-} as any)
-const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
-  id: '/wallet',
-  path: '/wallet',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSellerRoute = AuthenticatedSellerRouteImport.update({
-  id: '/seller',
-  path: '/seller',
+const AuthenticatedBusinessVerificationRoute =
+  AuthenticatedBusinessVerificationRouteImport.update({
+    id: '/business-verification',
+    path: '/business-verification',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedNotificationsRoute =
@@ -208,36 +114,130 @@ const AuthenticatedNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const AuthenticatedSellerRoute = AuthenticatedSellerRouteImport.update({
+  id: '/seller',
+  path: '/seller',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedBusinessVerificationRoute =
-  AuthenticatedBusinessVerificationRouteImport.update({
-    id: '/business-verification',
-    path: '/business-verification',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
+const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
+  id: '/wallet',
+  path: '/wallet',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ConsoleIndexRoute = ConsoleIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleApprovalsRoute = ConsoleApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleAuditRoute = ConsoleAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleDisputesRoute = ConsoleDisputesRouteImport.update({
+  id: '/disputes',
+  path: '/disputes',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleFinanceRoute = ConsoleFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleFulfilmentRoute = ConsoleFulfilmentRouteImport.update({
+  id: '/fulfilment',
+  path: '/fulfilment',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleOrdersRoute = ConsoleOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleOrganisationRoute = ConsoleOrganisationRouteImport.update({
+  id: '/organisation',
+  path: '/organisation',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleReportsRoute = ConsoleReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleVendorsRoute = ConsoleVendorsRouteImport.update({
+  id: '/vendors',
+  path: '/vendors',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const JoinTokenRoute = JoinTokenRouteImport.update({
+  id: '/join/$token',
+  path: '/join/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveIdRoute = LiveIdRouteImport.update({
+  id: '/live/$id',
+  path: '/live/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LotsIdRoute = LotsIdRouteImport.update({
+  id: '/lots/$id',
+  path: '/lots/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalIndexRoute = PortalIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalDocumentsRoute = PortalDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalOrdersRoute = PortalOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalPerformanceRoute = PortalPerformanceRouteImport.update({
+  id: '/performance',
+  path: '/performance',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalTeamRoute = PortalTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => PortalRoute,
+} as any)
+const ResultsIdRoute = ResultsIdRouteImport.update({
+  id: '/results/$id',
+  path: '/results/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConsoleEventsIndexRoute = ConsoleEventsIndexRouteImport.update({
   id: '/events/',
   path: '/events/',
-  getParentRoute: () => ConsoleRoute,
-} as any)
-const PortalEventsIdRoute = PortalEventsIdRouteImport.update({
-  id: '/events/$id',
-  path: '/events/$id',
-  getParentRoute: () => PortalRoute,
-} as any)
-const ConsoleEventsNewRoute = ConsoleEventsNewRouteImport.update({
-  id: '/events/new',
-  path: '/events/new',
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleEventsIdRoute = ConsoleEventsIdRouteImport.update({
   id: '/events/$id',
   path: '/events/$id',
   getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleEventsNewRoute = ConsoleEventsNewRouteImport.update({
+  id: '/events/new',
+  path: '/events/new',
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const PortalEventsIdRoute = PortalEventsIdRouteImport.update({
+  id: '/events/$id',
+  path: '/events/$id',
+  getParentRoute: () => PortalRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -495,60 +495,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/portal': {
-      id: '/portal'
-      path: '/portal'
-      fullPath: '/portal'
-      preLoaderRoute: typeof PortalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/contact': {
-      id: '/contact'
-      path: '/contact'
-      fullPath: '/contact'
-      preLoaderRoute: typeof ContactRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/console': {
-      id: '/console'
-      path: '/console'
-      fullPath: '/console'
-      preLoaderRoute: typeof ConsoleRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/access-denied': {
-      id: '/access-denied'
-      path: '/access-denied'
-      fullPath: '/access-denied'
-      preLoaderRoute: typeof AccessDeniedRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -558,165 +509,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/access-denied': {
+      id: '/access-denied'
+      path: '/access-denied'
+      fullPath: '/access-denied'
+      preLoaderRoute: typeof AccessDeniedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/portal/': {
-      id: '/portal/'
-      path: '/'
-      fullPath: '/portal/'
-      preLoaderRoute: typeof PortalIndexRouteImport
-      parentRoute: typeof PortalRoute
-    }
-    '/console/': {
-      id: '/console/'
-      path: '/'
-      fullPath: '/console/'
-      preLoaderRoute: typeof ConsoleIndexRouteImport
-      parentRoute: typeof ConsoleRoute
-    }
-    '/results/$id': {
-      id: '/results/$id'
-      path: '/results/$id'
-      fullPath: '/results/$id'
-      preLoaderRoute: typeof ResultsIdRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/portal/team': {
-      id: '/portal/team'
-      path: '/team'
-      fullPath: '/portal/team'
-      preLoaderRoute: typeof PortalTeamRouteImport
-      parentRoute: typeof PortalRoute
-    }
-    '/portal/performance': {
-      id: '/portal/performance'
-      path: '/performance'
-      fullPath: '/portal/performance'
-      preLoaderRoute: typeof PortalPerformanceRouteImport
-      parentRoute: typeof PortalRoute
-    }
-    '/portal/orders': {
-      id: '/portal/orders'
-      path: '/orders'
-      fullPath: '/portal/orders'
-      preLoaderRoute: typeof PortalOrdersRouteImport
-      parentRoute: typeof PortalRoute
-    }
-    '/portal/documents': {
-      id: '/portal/documents'
-      path: '/documents'
-      fullPath: '/portal/documents'
-      preLoaderRoute: typeof PortalDocumentsRouteImport
-      parentRoute: typeof PortalRoute
-    }
-    '/lots/$id': {
-      id: '/lots/$id'
-      path: '/lots/$id'
-      fullPath: '/lots/$id'
-      preLoaderRoute: typeof LotsIdRouteImport
+    '/console': {
+      id: '/console'
+      path: '/console'
+      fullPath: '/console'
+      preLoaderRoute: typeof ConsoleRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/live/$id': {
-      id: '/live/$id'
-      path: '/live/$id'
-      fullPath: '/live/$id'
-      preLoaderRoute: typeof LiveIdRouteImport
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/join/$token': {
-      id: '/join/$token'
-      path: '/join/$token'
-      fullPath: '/join/$token'
-      preLoaderRoute: typeof JoinTokenRouteImport
+    '/portal': {
+      id: '/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/console/vendors': {
-      id: '/console/vendors'
-      path: '/vendors'
-      fullPath: '/console/vendors'
-      preLoaderRoute: typeof ConsoleVendorsRouteImport
-      parentRoute: typeof ConsoleRoute
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/console/reports': {
-      id: '/console/reports'
-      path: '/reports'
-      fullPath: '/console/reports'
-      preLoaderRoute: typeof ConsoleReportsRouteImport
-      parentRoute: typeof ConsoleRoute
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/console/organisation': {
-      id: '/console/organisation'
-      path: '/organisation'
-      fullPath: '/console/organisation'
-      preLoaderRoute: typeof ConsoleOrganisationRouteImport
-      parentRoute: typeof ConsoleRoute
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/console/orders': {
-      id: '/console/orders'
-      path: '/orders'
-      fullPath: '/console/orders'
-      preLoaderRoute: typeof ConsoleOrdersRouteImport
-      parentRoute: typeof ConsoleRoute
-    }
-    '/console/fulfilment': {
-      id: '/console/fulfilment'
-      path: '/fulfilment'
-      fullPath: '/console/fulfilment'
-      preLoaderRoute: typeof ConsoleFulfilmentRouteImport
-      parentRoute: typeof ConsoleRoute
-    }
-    '/console/finance': {
-      id: '/console/finance'
-      path: '/finance'
-      fullPath: '/console/finance'
-      preLoaderRoute: typeof ConsoleFinanceRouteImport
-      parentRoute: typeof ConsoleRoute
-    }
-    '/console/disputes': {
-      id: '/console/disputes'
-      path: '/disputes'
-      fullPath: '/console/disputes'
-      preLoaderRoute: typeof ConsoleDisputesRouteImport
-      parentRoute: typeof ConsoleRoute
-    }
-    '/console/audit': {
-      id: '/console/audit'
-      path: '/audit'
-      fullPath: '/console/audit'
-      preLoaderRoute: typeof ConsoleAuditRouteImport
-      parentRoute: typeof ConsoleRoute
-    }
-    '/console/approvals': {
-      id: '/console/approvals'
-      path: '/approvals'
-      fullPath: '/console/approvals'
-      preLoaderRoute: typeof ConsoleApprovalsRouteImport
-      parentRoute: typeof ConsoleRoute
-    }
-    '/_authenticated/wallet': {
-      id: '/_authenticated/wallet'
-      path: '/wallet'
-      fullPath: '/wallet'
-      preLoaderRoute: typeof AuthenticatedWalletRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/seller': {
-      id: '/_authenticated/seller'
-      path: '/seller'
-      fullPath: '/seller'
-      preLoaderRoute: typeof AuthenticatedSellerRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/notifications': {
-      id: '/_authenticated/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+    '/_authenticated/business-verification': {
+      id: '/_authenticated/business-verification'
+      path: '/business-verification'
+      fullPath: '/business-verification'
+      preLoaderRoute: typeof AuthenticatedBusinessVerificationRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -726,12 +579,159 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/business-verification': {
-      id: '/_authenticated/business-verification'
-      path: '/business-verification'
-      fullPath: '/business-verification'
-      preLoaderRoute: typeof AuthenticatedBusinessVerificationRouteImport
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/seller': {
+      id: '/_authenticated/seller'
+      path: '/seller'
+      fullPath: '/seller'
+      preLoaderRoute: typeof AuthenticatedSellerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/wallet': {
+      id: '/_authenticated/wallet'
+      path: '/wallet'
+      fullPath: '/wallet'
+      preLoaderRoute: typeof AuthenticatedWalletRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/console/': {
+      id: '/console/'
+      path: '/'
+      fullPath: '/console/'
+      preLoaderRoute: typeof ConsoleIndexRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    '/console/approvals': {
+      id: '/console/approvals'
+      path: '/approvals'
+      fullPath: '/console/approvals'
+      preLoaderRoute: typeof ConsoleApprovalsRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    '/console/audit': {
+      id: '/console/audit'
+      path: '/audit'
+      fullPath: '/console/audit'
+      preLoaderRoute: typeof ConsoleAuditRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    '/console/disputes': {
+      id: '/console/disputes'
+      path: '/disputes'
+      fullPath: '/console/disputes'
+      preLoaderRoute: typeof ConsoleDisputesRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    '/console/finance': {
+      id: '/console/finance'
+      path: '/finance'
+      fullPath: '/console/finance'
+      preLoaderRoute: typeof ConsoleFinanceRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    '/console/fulfilment': {
+      id: '/console/fulfilment'
+      path: '/fulfilment'
+      fullPath: '/console/fulfilment'
+      preLoaderRoute: typeof ConsoleFulfilmentRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    '/console/orders': {
+      id: '/console/orders'
+      path: '/orders'
+      fullPath: '/console/orders'
+      preLoaderRoute: typeof ConsoleOrdersRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    '/console/organisation': {
+      id: '/console/organisation'
+      path: '/organisation'
+      fullPath: '/console/organisation'
+      preLoaderRoute: typeof ConsoleOrganisationRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    '/console/reports': {
+      id: '/console/reports'
+      path: '/reports'
+      fullPath: '/console/reports'
+      preLoaderRoute: typeof ConsoleReportsRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    '/console/vendors': {
+      id: '/console/vendors'
+      path: '/vendors'
+      fullPath: '/console/vendors'
+      preLoaderRoute: typeof ConsoleVendorsRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    '/join/$token': {
+      id: '/join/$token'
+      path: '/join/$token'
+      fullPath: '/join/$token'
+      preLoaderRoute: typeof JoinTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/live/$id': {
+      id: '/live/$id'
+      path: '/live/$id'
+      fullPath: '/live/$id'
+      preLoaderRoute: typeof LiveIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lots/$id': {
+      id: '/lots/$id'
+      path: '/lots/$id'
+      fullPath: '/lots/$id'
+      preLoaderRoute: typeof LotsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal/': {
+      id: '/portal/'
+      path: '/'
+      fullPath: '/portal/'
+      preLoaderRoute: typeof PortalIndexRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/documents': {
+      id: '/portal/documents'
+      path: '/documents'
+      fullPath: '/portal/documents'
+      preLoaderRoute: typeof PortalDocumentsRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/orders': {
+      id: '/portal/orders'
+      path: '/orders'
+      fullPath: '/portal/orders'
+      preLoaderRoute: typeof PortalOrdersRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/performance': {
+      id: '/portal/performance'
+      path: '/performance'
+      fullPath: '/portal/performance'
+      preLoaderRoute: typeof PortalPerformanceRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/team': {
+      id: '/portal/team'
+      path: '/team'
+      fullPath: '/portal/team'
+      preLoaderRoute: typeof PortalTeamRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/results/$id': {
+      id: '/results/$id'
+      path: '/results/$id'
+      fullPath: '/results/$id'
+      preLoaderRoute: typeof ResultsIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/console/events/': {
       id: '/console/events/'
@@ -740,12 +740,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConsoleEventsIndexRouteImport
       parentRoute: typeof ConsoleRoute
     }
-    '/portal/events/$id': {
-      id: '/portal/events/$id'
+    '/console/events/$id': {
+      id: '/console/events/$id'
       path: '/events/$id'
-      fullPath: '/portal/events/$id'
-      preLoaderRoute: typeof PortalEventsIdRouteImport
-      parentRoute: typeof PortalRoute
+      fullPath: '/console/events/$id'
+      preLoaderRoute: typeof ConsoleEventsIdRouteImport
+      parentRoute: typeof ConsoleRoute
     }
     '/console/events/new': {
       id: '/console/events/new'
@@ -754,12 +754,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConsoleEventsNewRouteImport
       parentRoute: typeof ConsoleRoute
     }
-    '/console/events/$id': {
-      id: '/console/events/$id'
+    '/portal/events/$id': {
+      id: '/portal/events/$id'
       path: '/events/$id'
-      fullPath: '/console/events/$id'
-      preLoaderRoute: typeof ConsoleEventsIdRouteImport
-      parentRoute: typeof ConsoleRoute
+      fullPath: '/portal/events/$id'
+      preLoaderRoute: typeof PortalEventsIdRouteImport
+      parentRoute: typeof PortalRoute
     }
   }
 }

@@ -86,6 +86,17 @@ function RegisterWizard() {
       </header>
 
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mb-8 rounded-xl border border-border bg-card p-5">
+          <p className="text-sm font-semibold text-foreground">How would you like to use Scrapify?</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {(["buyer", "seller"] as const).map((role) => (
+              <button key={role} type="button" onClick={() => update({ role })} className={`rounded-lg border p-4 text-left ${state.role === role ? "border-[color:var(--auction)] bg-orange-50" : "border-border"}`}>
+                <strong className="block uppercase">{role}</strong>
+                <span className="text-sm text-muted-foreground">{role === "buyer" ? "Participate in auctions" : "Create and manage auctions"}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         {/* Horizontal progress bar for narrow widths */}
         <div className="mb-6 lg:hidden">
           <div className="flex items-center gap-2">
@@ -391,7 +402,7 @@ function Step2({
         email: state.email,
         phone: state.mobile,
         password,
-        role: "buyer",
+        registration_type: state.role,
       });
       const vendorCode = response.user?.vendor?.id ?? "";
       update({
