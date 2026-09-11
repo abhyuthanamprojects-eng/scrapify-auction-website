@@ -361,7 +361,9 @@ function Step1({
             maxLength={10}
           />
           {!mobileVerified && !mobileOtpSent && (
-            <PrimaryButton onClick={sendMobileOtp} disabled={!validMobile}>Send SMS OTP</PrimaryButton>
+            <div className="mt-3">
+              <PrimaryButton onClick={sendMobileOtp} disabled={!validMobile}>Send SMS OTP</PrimaryButton>
+            </div>
           )}
           {!mobileVerified && mobileOtpSent && (
             <>
@@ -372,7 +374,9 @@ function Step1({
                 </button>
                 <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setMobileOtpSent(false)}>Change</button>
               </div>
-              <PrimaryButton onClick={verifyMobile} disabled={mobileOtp.length !== 6}>Verify mobile</PrimaryButton>
+              <div className="mt-3">
+                <PrimaryButton onClick={verifyMobile} disabled={mobileOtp.length !== 6}>Verify mobile</PrimaryButton>
+              </div>
             </>
           )}
         </div>
@@ -399,7 +403,9 @@ function Step1({
             disabled={emailVerified}
           />
           {!emailVerified && !emailOtpSent && (
-            <PrimaryButton onClick={sendEmailOtp} disabled={!validEmail}>Send email OTP</PrimaryButton>
+            <div className="mt-3">
+              <PrimaryButton onClick={sendEmailOtp} disabled={!validEmail}>Send email OTP</PrimaryButton>
+            </div>
           )}
           {!emailVerified && emailOtpSent && (
             <>
@@ -410,7 +416,9 @@ function Step1({
                 </button>
                 <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setEmailOtpSent(false)}>Change</button>
               </div>
-              <PrimaryButton onClick={verifyEmail} disabled={emailOtp.length !== 6}>Verify email</PrimaryButton>
+              <div className="mt-3">
+                <PrimaryButton onClick={verifyEmail} disabled={emailOtp.length !== 6}>Verify email</PrimaryButton>
+              </div>
             </>
           )}
         </div>

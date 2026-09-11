@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 export type SecurityAssessment = {
   allowed: boolean;
@@ -26,16 +26,10 @@ export function SecurityGate({ children, admin = false }: { children: ReactNode;
   return <div className="flex min-h-screen items-center justify-center bg-background px-6 text-center"><div className="max-w-lg"><h1 className="text-2xl font-bold text-foreground">{mobile ? "Mobile access blocked" : "Browser not supported"}</h1><p className="mt-3 text-muted-foreground">{mobile ? "This platform is not available on mobile browsers. Please use the Scrapify mobile application." : "For security and compatibility, use Google Chrome, Microsoft Edge, Mozilla Firefox, or Apple Safari."}</p></div></div>;
 }
 
-export function SecurityWatermark({ label = "Scrapify Auctions" }: { label?: string }) {
-  const [time, setTime] = useState(() => new Date().toLocaleString());
-  useEffect(() => { const timer = window.setInterval(() => setTime(new Date().toLocaleString()), 30_000); return () => window.clearInterval(timer); }, []);
-  return <div aria-hidden="true" className="security-watermark">{label} · {time}</div>;
-}
-
 export function initBrowserSecurity() {
   if (typeof window === "undefined") return () => {};
   const style = document.createElement("style");
-  style.textContent = `@media print { .security-protected-content { display:none !important } .security-print-warning { display:block !important } } .security-print-warning{display:none} .security-watermark{position:fixed;inset:0;z-index:50;pointer-events:none;display:grid;place-items:center;opacity:.12;color:currentColor;font:600 12px/1.4 monospace;transform:rotate(-24deg);white-space:nowrap;user-select:none}`;
+  style.textContent = `@media print { .security-protected-content { display:none !important } .security-print-warning { display:block !important } } .security-print-warning{display:none}`;
   document.head.appendChild(style);
   const onVisibility = () => document.documentElement.classList.toggle("security-page-hidden", document.visibilityState !== "visible");
   document.addEventListener("visibilitychange", onVisibility);
