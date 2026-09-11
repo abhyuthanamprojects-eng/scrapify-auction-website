@@ -21,6 +21,8 @@ export type RegistrationState = {
   // Step 1
   mobile: string;
   email: string;
+  mobileOtpVerified: boolean;
+  emailOtpVerified: boolean;
   otpVerified: boolean;
   googleLinked: boolean;
   vendorCode: string;
@@ -64,6 +66,8 @@ export const emptyRegistration = (): RegistrationState => ({
   completed: { 1: false, 2: false, 3: false, 4: false },
   mobile: "",
   email: "",
+  mobileOtpVerified: false,
+  emailOtpVerified: false,
   otpVerified: false,
   googleLinked: false,
   vendorCode: "",

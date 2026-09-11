@@ -101,7 +101,7 @@ function NotificationsPage() {
           ) : (
             <ul className="divide-y divide-border">
               {items.map((item) => {
-                const href = item.link ?? item.action_url;
+                const href = item.link ?? item.action_url ?? item.data?.deep_link;
                 const content = (
                   <>
                     <div className="flex items-center justify-between gap-3">

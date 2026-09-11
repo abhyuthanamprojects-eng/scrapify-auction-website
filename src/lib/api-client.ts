@@ -130,13 +130,20 @@ class ScrapifyApiClient {
     });
   }
 
-  async verifyOtp(identifier: string, code: string) {
+  async verifyOtp(identifier: string, code: string, purpose = "login") {
     const response = await this.request<any>("/auth/verify-otp", {
       method: "POST",
-      body: JSON.stringify({ identifier, code }),
+      body: JSON.stringify({ identifier, code, purpose }),
     });
     if (response.token) this.setToken(response.token);
     return response;
+  }
+
+  async resendOtp(identifier: string, purpose = "register") {
+    return this.request<any>("/auth/resend-otp", {
+      method: "POST",
+      body: JSON.stringify({ identifier, purpose }),
+    });
   }
 
   async me() {

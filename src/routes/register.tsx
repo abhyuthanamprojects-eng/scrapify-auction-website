@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useRegistration } from "@/hooks/use-registration";
 import { signInWithPopup } from "firebase/auth";
-import { auth, googleProvider } from "@/lib/firebase";
+import { getFirebaseAuth } from "@/lib/firebase";
 import type { RegistrationState, WizardStep } from "@/lib/registration-store";
 import { clearRegistration, MATERIALS } from "@/lib/registration-store";
 import { api } from "@/lib/api-client";
@@ -215,32 +215,50 @@ function Step1({
 }) {
   const [mobile, setMobile] = useState(state.mobile);
   const [email, setEmail] = useState(state.email);
-  const [otpSent, setOtpSent] = useState(state.otpVerified);
-  const [otp, setOtp] = useState("");
-  const [resendIn, setResendIn] = useState(0);
+  const [mobileOtpSent, setMobileOtpSent] = useState(state.mobileOtpVerified);
+  const [emailOtpSent, setEmailOtpSent] = useState(state.emailOtpVerified);
+  const [mobileOtp, setMobileOtp] = useState("");
+  const [emailOtp, setEmailOtp] = useState("");
+  const [mobileResendIn, setMobileResendIn] = useState(0);
+  const [emailResendIn, setEmailResendIn] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (resendIn <= 0) return;
-    const t = setTimeout(() => setResendIn((n) => n - 1), 1000);
+    if (mobileResendIn <= 0) return;
+    const t = setTimeout(() => setMobileResendIn((n) => n - 1), 1000);
     return () => clearTimeout(t);
-  }, [resendIn]);
+  }, [mobileResendIn]);
+
+  useEffect(() => {
+    if (emailResendIn <= 0) return;
+    const t = setTimeout(() => setEmailResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [emailResendIn]);
 
   const validMobile = /^[6-9]\d{9}$/.test(mobile);
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const mobileVerified = state.mobileOtpVerified;
+  const emailVerified = state.emailOtpVerified;
 
   const onGoogle = async () => {
     setError(null);
+    if (!mobileVerified) {
+      setError("Verify your mobile OTP before continuing with Google.");
+      return;
+    }
     update({ mobile });
     try {
+      const { auth, googleProvider } = await getFirebaseAuth();
       const result = await signInWithPopup(auth, googleProvider);
       const idToken = await result.user.getIdToken();
-      const res = await api.googleSignIn(idToken, mobile || undefined);
+      const res = await api.googleSignIn(idToken, mobile || undefined, state.role);
       const user = res.user;
       update({
         email: user?.email ?? result.user.email ?? email,
         contactEmail: user?.email ?? result.user.email ?? email,
         contactName: user?.name ?? result.user.displayName ?? state.contactName,
+        mobileOtpVerified: true,
+        emailOtpVerified: true,
         otpVerified: true,
         googleLinked: true,
         vendorCode: user?.vendor?.id ?? "",
@@ -254,102 +272,151 @@ function Step1({
     }
   };
 
-  const sendOtp = async () => {
+  const sendMobileOtp = async () => {
     setError(null);
     if (!validMobile) return setError("Enter a valid 10-digit mobile number.");
-    if (!validEmail) return setError("Enter a valid email address.");
     try {
-      await api.requestOtp(email, "register");
-      update({ mobile, email });
-      setOtpSent(true);
-      setResendIn(30);
+      const response = await api.requestOtp(mobile, "register");
+      update({ mobile });
+      setMobileOtpSent(true);
+      setMobileResendIn(response.resend_after ?? 30);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not send OTP.");
+      setError(cause instanceof Error ? cause.message : "Could not send mobile OTP.");
     }
   };
 
-  const verify = async () => {
+  const sendEmailOtp = async () => {
     setError(null);
-    if (!/^\d{4,6}$/.test(otp)) return setError("Enter the 4–6 digit code sent to you.");
+    if (!validEmail) return setError("Enter a valid email address.");
     try {
-      await api.verifyOtp(email, otp);
+      const response = await api.requestOtp(email, "register");
+      update({ email });
+      setEmailOtpSent(true);
+      setEmailResendIn(response.resend_after ?? 30);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not send email OTP.");
+    }
+  };
+
+  const verifyMobile = async () => {
+    setError(null);
+    if (!/^\d{6}$/.test(mobileOtp)) return setError("Enter the 6-digit mobile OTP.");
+    try {
+      await api.verifyOtp(mobile, mobileOtp, "register");
+      const complete = state.emailOtpVerified;
       update({
-        otpVerified: true,
-        completed: { ...state.completed, 1: true },
-        step: 2,
+        mobile,
+        mobileOtpVerified: true,
+        otpVerified: complete,
+        ...(complete ? { completed: { ...state.completed, 1: true }, step: 2 as const } : {}),
       });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "OTP verification failed.");
+      setError(cause instanceof Error ? cause.message : "Mobile OTP verification failed.");
+    }
+  };
+
+  const verifyEmail = async () => {
+    setError(null);
+    if (!/^\d{6}$/.test(emailOtp)) return setError("Enter the 6-digit email OTP.");
+    try {
+      await api.verifyOtp(email, emailOtp, "register");
+      const complete = state.mobileOtpVerified;
+      update({
+        email,
+        emailOtpVerified: true,
+        otpVerified: complete,
+        ...(complete ? { completed: { ...state.completed, 1: true }, step: 2 as const } : {}),
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Email OTP verification failed.");
     }
   };
 
   return (
     <FormShell
       title="Verify your identity"
-      subtitle="We'll send a one-time code to both your mobile number and email."
+      subtitle="Verify your mobile by SMS and your email independently. Both checks are required before registration."
     >
-      <Field
-        label="Mobile Number"
-        type="tel"
-        value={mobile}
-        onChange={setMobile}
-        placeholder="10-digit mobile"
-        disabled={otpSent}
-        maxLength={10}
-      />
-      <Field
-        label="Email ID"
-        type="email"
-        value={email}
-        onChange={setEmail}
-        placeholder="you@company.com"
-        disabled={otpSent}
-      />
-
-      {!otpSent ? (
-        <>
-          {error && <ErrorLine>{error}</ErrorLine>}
-          <PrimaryButton onClick={sendOtp} disabled={!validMobile || !validEmail}>
-            Send OTP
-          </PrimaryButton>
-        </>
-      ) : (
-        <>
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700">
-            OTP sent to <b>{email}</b>. Enter the code before it expires.
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-sm font-semibold">Mobile OTP</span>
+            {mobileVerified && <span className="text-xs font-semibold text-emerald-600">Verified</span>}
           </div>
           <Field
-            label="Enter OTP"
-            type="text"
-            value={otp}
-            onChange={setOtp}
-            placeholder="6-digit code"
-            maxLength={6}
+            label="Mobile Number"
+            type="tel"
+            value={mobile}
+            onChange={(value) => {
+              setMobile(value);
+              if (mobileVerified) {
+                update({ mobile: value, mobileOtpVerified: false, otpVerified: false });
+              } else if (mobileOtpSent) {
+                setMobileOtpSent(false);
+                setMobileOtp("");
+              }
+            }}
+            placeholder="10-digit mobile"
+            disabled={mobileVerified}
+            maxLength={10}
           />
-          <div className="flex items-center justify-between text-xs">
-            <button
-              type="button"
-              className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground disabled:no-underline"
-              disabled={resendIn > 0}
-              onClick={sendOtp}
-            >
-              {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend OTP"}
-            </button>
-            <button
-              type="button"
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => setOtpSent(false)}
-            >
-              Change mobile / email
-            </button>
-          </div>
-          {error && <ErrorLine>{error}</ErrorLine>}
-          <PrimaryButton onClick={verify} disabled={otp.length < 4}>
-            Verify & Continue
-          </PrimaryButton>
-        </>
-      )}
+          {!mobileVerified && !mobileOtpSent && (
+            <PrimaryButton onClick={sendMobileOtp} disabled={!validMobile}>Send SMS OTP</PrimaryButton>
+          )}
+          {!mobileVerified && mobileOtpSent && (
+            <>
+              <Field label="SMS code" type="text" value={mobileOtp} onChange={setMobileOtp} placeholder="6-digit code" maxLength={6} />
+              <div className="flex items-center justify-between text-xs">
+                <button type="button" className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground" disabled={mobileResendIn > 0} onClick={sendMobileOtp}>
+                  {mobileResendIn > 0 ? "Resend in " + mobileResendIn + "s" : "Resend SMS"}
+                </button>
+                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setMobileOtpSent(false)}>Change</button>
+              </div>
+              <PrimaryButton onClick={verifyMobile} disabled={mobileOtp.length !== 6}>Verify mobile</PrimaryButton>
+            </>
+          )}
+        </div>
 
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-sm font-semibold">Email OTP</span>
+            {emailVerified && <span className="text-xs font-semibold text-emerald-600">Verified</span>}
+          </div>
+          <Field
+            label="Email ID"
+            type="email"
+            value={email}
+            onChange={(value) => {
+              setEmail(value);
+              if (emailVerified) {
+                update({ email: value, emailOtpVerified: false, otpVerified: false });
+              } else if (emailOtpSent) {
+                setEmailOtpSent(false);
+                setEmailOtp("");
+              }
+            }}
+            placeholder="you@company.com"
+            disabled={emailVerified}
+          />
+          {!emailVerified && !emailOtpSent && (
+            <PrimaryButton onClick={sendEmailOtp} disabled={!validEmail}>Send email OTP</PrimaryButton>
+          )}
+          {!emailVerified && emailOtpSent && (
+            <>
+              <Field label="Email code" type="text" value={emailOtp} onChange={setEmailOtp} placeholder="6-digit code" maxLength={6} />
+              <div className="flex items-center justify-between text-xs">
+                <button type="button" className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground" disabled={emailResendIn > 0} onClick={sendEmailOtp}>
+                  {emailResendIn > 0 ? "Resend in " + emailResendIn + "s" : "Resend email"}
+                </button>
+                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setEmailOtpSent(false)}>Change</button>
+              </div>
+              <PrimaryButton onClick={verifyEmail} disabled={emailOtp.length !== 6}>Verify email</PrimaryButton>
+            </>
+          )}
+        </div>
+      </div>
+
+      {error && <ErrorLine>{error}</ErrorLine>}
       <div className="flex items-center gap-3 pt-1 text-xs uppercase tracking-wider text-muted-foreground">
         <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
       </div>
@@ -362,8 +429,7 @@ function Step1({
         Register with Google
       </button>
       <p className="text-center text-xs text-muted-foreground">
-        Google verifies your email and password for you — you'll continue with Company Information
-        &amp; KYC.
+        Google verifies your email. Verify mobile OTP first, then you can continue directly to Company Information &amp; KYC.
       </p>
     </FormShell>
   );
