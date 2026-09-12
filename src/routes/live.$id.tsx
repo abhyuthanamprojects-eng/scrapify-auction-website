@@ -15,11 +15,10 @@ import { getLot, formatINR, type Lot } from "@/lib/auction-data";
 import { api } from "@/lib/api-client";
 import { requireRole } from "@/lib/route-guards";
 import { useTick } from "@/hooks/use-tick";
-import { useFlow, useHydrated } from "@/hooks/use-flow";
+import { useHydrated } from "@/hooks/use-flow";
 import { useRegistration } from "@/hooks/use-registration";
 import {
   lotType,
-  maskedAlias,
   subLots,
   notify,
 } from "@/lib/customer-flow";
@@ -66,7 +65,6 @@ function LiveRoom() {
   const navigate = useNavigate();
   useTick(1000);
   const hydrated = useHydrated();
-  const flow = useFlow();
   const { state } = useRegistration();
   const [liveState, setLiveState] = useState<any>(null);
   const [serverOffset, setServerOffset] = useState(0);
@@ -99,19 +97,20 @@ function LiveRoom() {
   const participation = flow.participation[lot.id];
   const emdConfirmed = participation?.emd === "confirmed";
   const approved = state.vendorStatus === "approved";
-  const extended = flow.extendedBy[lot.id] ?? 0;
-  const closed = flow.endedNow.includes(lot.id);
   const endsAt = liveState?.active_slot?.ends_at
     ? Date.parse(liveState.active_slot.ends_at)
     : liveState?.schedule_end
       ? Date.parse(liveState.schedule_end)
       : lot.endsAt;
   const remaining = Math.max(0, endsAt - (Date.now() + serverOffset));
-  const over = closed || remaining === 0 || liveState?.status !== "live";
+  const over = remaining === 0 || liveState?.status !== "live";
 
   const isReverse = lot.auctionType === "reverse";
-  const myBid = flow.myBids[lot.id];
-  const current = Number(liveState?.current_highest_inr ?? lot.currentBid);
+  const currentValue =
+    liveState?.direction === "reverse"
+      ? liveState?.current_lowest_inr ?? liveState?.current_price_inr
+      : liveState?.current_highest_inr ?? liveState?.current_price_inr;
+  const current = currentValue == null ? null : Number(currentValue);
 
   const [subLot, setSubLot] = useState("1");
   const [amount, setAmount] = useState(
@@ -124,16 +123,24 @@ function LiveRoom() {
   const perSubLot = lotType(lot) === "Lot-wise";
 
   const board = useMemo(() => {
-    const rows = liveBids.map((b, i) => ({
-      alias: maskedAlias(i), amount: Number(b.amount_inr ?? b.amount), at: b.at ?? "", mine: false,
-    }));
-    if (myBid) rows.unshift({ alias: "You", amount: myBid, at: "just now", mine: true });
+    const rows = liveBids
+      .map((b, i) => ({
+        alias: `Bidder ${i + 1}`,
+        amount: Number(b.amount_inr ?? b.amount),
+        at: b.at ?? "",
+        mine: false,
+      }))
+      .filter((row) => Number.isFinite(row.amount));
     return rows.sort((a, b) => (isReverse ? a.amount - b.amount : b.amount - a.amount));
-  }, [liveBids, myBid, isReverse]);
+  }, [liveBids, isReverse]);
 
-  const myRank = myBid ? board.findIndex((r) => r.mine) + 1 : null;
+  const myRank = liveState?.own_rank ?? null;
 
   const validate = () => {
+    if (current == null || !Number.isFinite(current)) {
+      setError("Live price is not available from the auction server yet.");
+      return false;
+    }
     const min = isReverse ? current - lot.increment : current + lot.increment;
     if (isReverse ? amount > min : amount < min) {
       setError(
@@ -212,9 +219,9 @@ function LiveRoom() {
                 </div>
               </div>
               <div className="mt-6 grid grid-cols-3 gap-4 border-t border-white/10 pt-4">
-                <Metric label={isReverse ? "Current L1" : "Live price"} value={liveState ? formatINR(current) : "—"} />
+                <Metric label={isReverse ? "Current L1" : "Live price"} value={current == null ? "—" : formatINR(current)} />
                 <Metric label="My rank" value={myRank ? `#${myRank}` : "—"} />
-                <Metric label="Bidders" value={liveState ? String(liveState.bidders ?? 0) : "—"} />
+                <Metric label="Bidders" value={liveState ? String(liveState.participant_count ?? liveState.bidders ?? "—") : "—"} />
               </div>
               <p className="mt-3 text-xs text-white/50">
                 Countdown is synced to server time. Bidder identities are masked.
@@ -317,11 +324,13 @@ function LiveRoom() {
                     <button
                       key={m}
                       onClick={() =>
-                        setAmount(
-                          isReverse
-                            ? current - lot.increment * m
-                            : current + lot.increment * m,
-                        )
+                        current == null
+                          ? setError("Live price is not available from the auction server yet.")
+                          : setAmount(
+                              isReverse
+                                ? current - lot.increment * m
+                                : current + lot.increment * m,
+                            )
                       }
                       className="rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold hover:border-[color:var(--auction)] hover:text-[color:var(--auction)]"
                     >
@@ -346,7 +355,7 @@ function LiveRoom() {
                   <Users className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   Minimum {isReverse ? "reduction" : "increment"}{" "}
                   {formatINR(lot.increment)}. Reserve status:{" "}
-                  {current >= lot.reserve ? "reserve met" : "reserve not met"}.
+                  {current != null && current >= lot.reserve ? "reserve met" : "reserve not met"}.
                 </p>
               </>
             )}

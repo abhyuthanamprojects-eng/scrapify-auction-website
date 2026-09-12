@@ -296,6 +296,13 @@ class ScrapifyApiClient {
     });
   }
 
+  async updateAuctionConfiguration(code: string, data: Record<string, unknown>) {
+    return this.request<any>(`/auctions/${code}/configuration`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
   async publishAuction(code: string) {
     return this.request<any>(`/auctions/${code}/publish`, {
       method: "POST",

@@ -48,6 +48,13 @@ const STEPS: { n: WizardStep; label: string; blurb: string }[] = [
   { n: 4, label: "Complete", blurb: "Review, pay, approval" },
 ];
 
+const isIndianMobile = (value: string) => /^(?:\+91[\s-]?)?[6-9]\d{9}$/.test(value.trim());
+const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+const isIndianPincode = (value: string) => /^[1-9]\d{5}$/.test(value.trim());
+const isGstin = (value: string) => /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(value.trim().toUpperCase());
+const isPan = (value: string) => /^[A-Z]{5}\d{4}[A-Z]$/.test(value.trim().toUpperCase());
+const isIfsc = (value: string) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(value.trim().toUpperCase());
+
 function RegisterWizard() {
   const { state, update } = useRegistration();
   const step = state.step;
@@ -130,7 +137,7 @@ function RegisterWizard() {
           <aside className="hidden lg:block">
             <div className="card-soft sticky top-6 p-6">
               <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Bidder Registration
+                {state.role === "seller" ? "Seller Registration" : "Buyer Registration"}
               </div>
               <ol className="mt-4 space-y-2">
                 {STEPS.map((s) => {
@@ -463,7 +470,7 @@ function Step2({
 
   const strength = useMemo(() => scorePassword(password), [password]);
   const matches = password.length > 0 && password === confirm;
-  const strong = strength.score >= 2;
+  const strong = password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password);
   const canContinue = matches && strong;
 
   const submit = async () => {
@@ -639,21 +646,49 @@ function Step3({
     bankAccount: state.bankAccount,
     bankIfsc: state.bankIfsc,
     bankName: state.bankName,
+    warehouseName: state.warehouseName,
+    warehouseAddress: state.warehouseAddress,
+    warehouseCity: state.warehouseCity,
+    warehouseState: state.warehouseState,
+    warehousePincode: state.warehousePincode,
+    warehouseContact: state.warehouseContact,
   });
   const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [warehousePincodeLoading, setWarehousePincodeLoading] = useState(false);
+  const [pincodeResolved, setPincodeResolved] = useState(Boolean(state.pincode && state.city && state.state));
+  const [warehousePincodeResolved, setWarehousePincodeResolved] = useState(Boolean(state.warehousePincode && state.warehouseCity && state.warehouseState));
 
   const onPincodeChange = async (value: string) => {
-    setF((p) => ({ ...p, pincode: value }));
-    if (value.length === 6) {
+    const pincode = value.replace(/\D/g, '').slice(0, 6);
+    setF((p) => ({ ...p, pincode, city: '', state: '' }));
+    setPincodeResolved(false);
+    if (isIndianPincode(pincode)) {
       setPincodeLoading(true);
       try {
-        const result = await api.lookupPincode(value);
+        const result = await api.lookupPincode(pincode);
         setF((p) => ({ ...p, city: result.city, state: result.state }));
+        setPincodeResolved(true);
       } catch {
-        // User can fill manually
+        setError("We could not resolve this PIN code. Please enter a valid Indian PIN code.");
       } finally {
         setPincodeLoading(false);
       }
+    }
+  };
+  const onWarehousePincodeChange = async (value: string) => {
+    const pincode = value.replace(/\D/g, '').slice(0, 6);
+    setF((p) => ({ ...p, warehousePincode: pincode, warehouseCity: '', warehouseState: '' }));
+    setWarehousePincodeResolved(false);
+    if (!isIndianPincode(pincode)) return;
+    setWarehousePincodeLoading(true);
+    try {
+      const result = await api.lookupPincode(pincode);
+      setF((p) => ({ ...p, warehouseCity: result.city, warehouseState: result.state }));
+      setWarehousePincodeResolved(true);
+    } catch {
+      setError("We could not resolve the warehouse PIN code. Please enter a valid Indian PIN code.");
+    } finally {
+      setWarehousePincodeLoading(false);
     }
   };
   const [gstFile, setGstFile] = useState<File | null>(null);
@@ -670,7 +705,9 @@ function Step3({
     setMaterials((p) => (p.includes(m) ? p.filter((x) => x !== m) : [...p, m]));
 
   const allFilled =
-    Object.values(f).every((v) => v.trim().length > 0) &&
+    Object.entries(f)
+      .filter(([key]) => !key.startsWith("warehouse"))
+      .every(([, value]) => value.trim().length > 0) &&
     gstFile &&
     panFile &&
     chequeFile &&
@@ -678,8 +715,23 @@ function Step3({
     materials.length > 0 &&
     terms;
 
+  const warehouseRequired = state.role === "seller";
+  const warehouseComplete = [
+    f.warehouseName,
+    f.warehouseAddress,
+    f.warehouseCity,
+    f.warehouseState,
+    f.warehousePincode,
+  ].every((value) => value.trim().length > 0);
+  const formComplete = allFilled &&
+    isIndianPincode(f.pincode) && pincodeResolved &&
+    isIndianMobile(f.contactMobile) &&
+    isEmail(f.contactEmail) && isGstin(f.gstNumber) && isPan(f.panNumber) &&
+    /^\d{6,30}$/.test(f.bankAccount.trim()) && isIfsc(f.bankIfsc) &&
+    (!warehouseRequired || (warehouseComplete && isIndianPincode(f.warehousePincode) && warehousePincodeResolved));
+
   const submit = async () => {
-    if (!allFilled) return;
+    if (!formComplete) return;
     setBusy(true);
     setError(null);
     try {
@@ -695,8 +747,25 @@ function Step3({
         gst_number: f.gstNumber,
         pan_number: f.panNumber,
         license_number: f.licenseNumber,
+        bank_name: f.bankName,
+        account_number: f.bankAccount,
+        ifsc_code: f.bankIfsc,
+        account_holder_name: f.contactName,
         material_interest: materials,
         terms_accepted: terms,
+        ...(warehouseRequired
+          ? {
+              warehouse_details: {
+                name: f.warehouseName,
+                address: f.warehouseAddress,
+                city: f.warehouseCity,
+                state: f.warehouseState,
+                pincode: f.warehousePincode,
+                contact_name: f.warehouseContact || f.contactName,
+                contact_phone: f.contactMobile,
+              },
+            }
+          : {}),
       });
       const vendorCode =
         vendorResponse.data?.code ?? vendorResponse.code ?? vendorResponse.id ?? state.vendorCode;
@@ -707,6 +776,7 @@ function Step3({
         api.uploadVendorDocument(vendorCode, "pan", "PAN Card", panFile!),
         api.uploadVendorDocument(vendorCode, "bank", "Cancelled Cheque", chequeFile!),
       ]);
+      await api.submitVendorKyc(vendorCode);
       update({
         ...f,
         vendorCode,
@@ -729,7 +799,11 @@ function Step3({
   return (
     <FormShell
       title="Company information"
-      subtitle="All fields are required. Documents are used for one-time KYC verification."
+      subtitle={
+        state.role === "seller"
+          ? "Complete your company, warehouse, banking, and KYC details for seller approval."
+          : "All fields are required. Documents are used for one-time KYC verification."
+      }
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Company Name" value={f.companyName} onChange={set("companyName")} />
@@ -745,8 +819,8 @@ function Step3({
           maxLength={6}
           placeholder={pincodeLoading ? "Looking up…" : "6-digit PIN code"}
         />
-        <Field label="City" value={f.city} onChange={set("city")} />
-        <Field label="State" value={f.state} onChange={set("state")} />
+        <Field label="City (from PIN API)" value={f.city} onChange={set("city")} disabled={pincodeLoading} readOnly />
+        <Field label="State (from PIN API)" value={f.state} onChange={set("state")} disabled={pincodeLoading} readOnly />
         <Field label="GST Number" value={f.gstNumber} onChange={set("gstNumber")} />
         <Field label="PAN Number" value={f.panNumber} onChange={set("panNumber")} />
         <Field label="License Number" value={f.licenseNumber} onChange={set("licenseNumber")} />
@@ -767,6 +841,27 @@ function Step3({
           />
         </div>
       </div>
+
+      {warehouseRequired && (
+        <div className="rounded-xl border border-[color:var(--auction)]/30 bg-[color:var(--auction)]/5 p-4">
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Warehouse / operating site
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            This is the location from which your seller lots will be dispatched or inspected.
+          </p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <Field label="Warehouse name" value={f.warehouseName} onChange={set("warehouseName")} />
+            <Field label="Warehouse PIN code" value={f.warehousePincode} onChange={onWarehousePincodeChange} maxLength={6} placeholder={warehousePincodeLoading ? "Looking up…" : "6-digit PIN code"} />
+            <div className="sm:col-span-2">
+              <Field label="Warehouse address" value={f.warehouseAddress} onChange={set("warehouseAddress")} />
+            </div>
+            <Field label="Warehouse city (from PIN API)" value={f.warehouseCity} onChange={set("warehouseCity")} disabled={warehousePincodeLoading} readOnly />
+            <Field label="Warehouse state (from PIN API)" value={f.warehouseState} onChange={set("warehouseState")} disabled={warehousePincodeLoading} readOnly />
+            <Field label="Site contact name (optional)" value={f.warehouseContact} onChange={set("warehouseContact")} />
+          </div>
+        </div>
+      )}
 
       <div>
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -828,9 +923,9 @@ function Step3({
         </div>
         <div className="max-h-40 overflow-y-auto p-4 text-xs leading-relaxed text-muted-foreground">
           <p>
-            By registering as a bidder on Scrapify Auction, you agree to submit accurate KYC
-            information, lock an EMD before bidding, and comply with post-auction lifting timelines.
-            Winning bids create a binding contract with the seller.
+            By registering on Scrapify Auction, you agree to submit accurate KYC information and
+            comply with the platform's verification, payment, and fulfilment rules. Winning bids
+            create a binding contract with the seller.
           </p>
           <p className="mt-2">
             EMD is refundable if you do not win. Non-lifting after a winning bid may result in EMD
@@ -858,7 +953,7 @@ function Step3({
         <SecondaryButton onClick={() => update({ step: 2 })}>
           <ChevronLeft className="h-4 w-4" /> Back
         </SecondaryButton>
-        <PrimaryButton onClick={submit} disabled={!allFilled || busy}>
+        <PrimaryButton onClick={submit} disabled={!formComplete || busy}>
           {busy ? "Uploading…" : "Continue"}
         </PrimaryButton>
       </div>
@@ -1019,6 +1114,14 @@ function Step4({
     ["Bank Account", state.bankAccount, 3],
     ["IFSC", state.bankIfsc, 3],
     ["Bank Name", state.bankName, 3],
+    ...(state.role === "seller"
+      ? [
+          ["Warehouse Name", state.warehouseName, 3] as [string, string, WizardStep],
+          ["Warehouse Address", state.warehouseAddress, 3] as [string, string, WizardStep],
+          ["Warehouse City / State", `${state.warehouseCity}, ${state.warehouseState}`, 3] as [string, string, WizardStep],
+          ["Warehouse PIN Code", state.warehousePincode, 3] as [string, string, WizardStep],
+        ]
+      : []),
     ["License Document", state.licenseFile ?? "—", 3],
     ["GST Certificate", state.gstFile ?? "—", 3],
     ["PAN Card", state.panFile ?? "—", 3],
@@ -1078,7 +1181,11 @@ function Step4({
     return (
       <FormShell
         title="Registration payment"
-        subtitle="A one-time registration fee activates your bidder account."
+        subtitle={
+          state.role === "seller"
+            ? "A one-time registration fee submits your seller verification application."
+            : "A one-time registration fee activates your buyer account."
+        }
       >
         <div className="grid gap-3 sm:grid-cols-3">
           {options.map((o) => (
@@ -1287,6 +1394,7 @@ function Field({
   placeholder,
   disabled,
   maxLength,
+  readOnly,
 }: {
   label: string;
   value: string;
@@ -1295,6 +1403,7 @@ function Field({
   placeholder?: string;
   disabled?: boolean;
   maxLength?: number;
+  readOnly?: boolean;
 }) {
   return (
     <label className="block">
@@ -1307,6 +1416,7 @@ function Field({
         placeholder={placeholder}
         disabled={disabled}
         maxLength={maxLength}
+        readOnly={readOnly}
         onChange={(e) => onChange(e.target.value)}
         className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[color:var(--auction)] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
       />

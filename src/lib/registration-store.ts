@@ -45,6 +45,12 @@ export type RegistrationState = {
   bankAccount: string;
   bankIfsc: string;
   bankName: string;
+  warehouseName: string;
+  warehouseAddress: string;
+  warehouseCity: string;
+  warehouseState: string;
+  warehousePincode: string;
+  warehouseContact: string;
   gstFile: string | null;
   panFile: string | null;
   chequeFile: string | null;
@@ -88,6 +94,12 @@ export const emptyRegistration = (): RegistrationState => ({
   bankAccount: "",
   bankIfsc: "",
   bankName: "",
+  warehouseName: "",
+  warehouseAddress: "",
+  warehouseCity: "",
+  warehouseState: "",
+  warehousePincode: "",
+  warehouseContact: "",
   gstFile: null,
   panFile: null,
   chequeFile: null,

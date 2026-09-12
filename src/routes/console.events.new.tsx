@@ -80,7 +80,14 @@ function CreateEventWizard() {
   const [title, setTitle] = useState("Industrial Copper Scrap & Armoured Cables (28 MT)");
   const [category, setCategory] = useState<string>("");
   const [bu, setBu] = useState("Corporate Disposals");
+  const [plant, setPlant] = useState("");
   const [facility, setFacility] = useState("Plot 48, MIDC Industrial Area, Mumbai");
+  const [warehouseName, setWarehouseName] = useState("");
+  const [warehouseAddress, setWarehouseAddress] = useState("");
+  const [warehouseCity, setWarehouseCity] = useState("");
+  const [warehouseState, setWarehouseState] = useState("");
+  const [warehousePincode, setWarehousePincode] = useState("");
+  const [warehouseContact, setWarehouseContact] = useState("");
   // Step 4: Lots
   const [lines, setLines] = useState<Line[]>([
     {
@@ -105,15 +112,30 @@ function CreateEventWizard() {
   const [increment, setIncrement] = useState("10000");
   const [emdRequired, setEmdRequired] = useState(true);
   const [emdAmount, setEmdAmount] = useState("50000");
+  const [startingPrice, setStartingPrice] = useState("1650000");
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [liftingPeriod, setLiftingPeriod] = useState("7");
+  const [liftingUnit, setLiftingUnit] = useState("Days");
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [inspection, setInspection] = useState("");
+  const [inspectionDate, setInspectionDate] = useState("");
+  const [inspectionTime, setInspectionTime] = useState("");
+  const [inspectionLocation, setInspectionLocation] = useState("");
+  const [guidelines, setGuidelines] = useState("");
   // Step 9: Timing
   const [autoExtendMins, setAutoExtendMins] = useState("3");
+  const [initialSlotMins, setInitialSlotMins] = useState("30");
+  const [continuationSlotMins, setContinuationSlotMins] = useState("2");
+  const [maximumDurationMins, setMaximumDurationMins] = useState("120");
   const [startTime, setStartTime] = useState(() => {
     const d = new Date(Date.now() + 24 * 3600 * 1000);
     d.setMinutes(0, 0, 0);
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   });
   const [endTime, setEndTime] = useState(() => {
-    const d = new Date(Date.now() + 48 * 3600 * 1000);
+    const d = new Date(Date.now() + 24 * 3600 * 1000 + 120 * 60 * 1000);
     d.setMinutes(0, 0, 0);
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   });
@@ -159,19 +181,57 @@ function CreateEventWizard() {
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
         throw new Error("Enter valid start and end date/time values.");
       }
+      const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
+      const maximumDuration = Number(maximumDurationMins);
+      if (!Number.isInteger(maximumDuration) || maximumDuration < 1 || maximumDuration > 120) {
+        throw new Error("Maximum auction duration must be between 1 and 120 minutes.");
+      }
+      if (durationMinutes > maximumDuration) {
+        throw new Error(`Auction schedule cannot exceed ${maximumDuration} minutes.`);
+      }
+      if (Number(initialSlotMins) < 1 || Number(continuationSlotMins) < 1) {
+        throw new Error("Slot durations must be greater than zero.");
+      }
+      if (!lines.some((line) => line.description.trim() && Number(line.quantity) > 0)) {
+        throw new Error("Add at least one lot with an item name and quantity.");
+      }
       const response = await api.createAuction({
-        title,
+        title: title.trim(),
+        description: lines.map((line) => line.description.trim()).filter(Boolean).join("; "),
         company: bu,
+        plant: plant || undefined,
+        warehouse: warehouseName || undefined,
+        warehouse_details: {
+          address: warehouseAddress || undefined,
+          city: warehouseCity || undefined,
+          state: warehouseState || undefined,
+          pincode: warehousePincode || undefined,
+          contact: warehouseContact || undefined,
+        },
+        location: facility,
         category,
+        material_type: purpose,
         direction,
         lot_type: "lot_wise",
-        location: facility,
+        quantity: lines.reduce((total, line) => total + (Number(line.quantity) || 0), 0).toString(),
+        uom: lines[0]?.unit || "MT",
         reserve_price: Number(baseline),
-        starting_price: Number(baseline),
+        starting_price: Number(startingPrice || baseline),
         bid_increment: Number(increment),
         emd_amount: emdRequired ? Number(emdAmount) : 0,
         schedule_start: start.toISOString(),
         schedule_end: end.toISOString(),
+        inspection,
+        inspection_date: inspectionDate || undefined,
+        inspection_time: inspectionTime || undefined,
+        inspection_location: inspectionLocation || facility,
+        guidelines_doc: guidelines || docs.join(", "),
+        payment_terms: paymentTerms || undefined,
+        lifting_period: liftingPeriod || undefined,
+        lifting_unit: liftingUnit,
+        contact_name: contactName || undefined,
+        contact_phone: contactPhone || undefined,
+        contact_email: contactEmail || undefined,
         status: "draft",
         sub_lots: lines.map((line) => ({
           name: line.description,
@@ -182,6 +242,19 @@ function CreateEventWizard() {
       });
       const code = response?.data?.code ?? response?.code;
       if (!code) throw new Error("The API did not return the created event code.");
+      await api.updateAuctionConfiguration(code, {
+        rfq_required: enableRfx,
+        rfq_mode: "DOCUMENT",
+        emd_required: emdRequired,
+        emd_type: "FIXED",
+        emd_fixed_amount: emdRequired ? Number(emdAmount) : 0,
+        initial_slot_minutes: Number(initialSlotMins),
+        continuation_slot_minutes: Number(continuationSlotMins),
+        maximum_auction_duration_minutes: maximumDuration,
+        bid_cutoff_ms: 500,
+        continuation_mode: "MANUAL_ADMIN",
+        fallback_allowed: fallbackEnabled,
+      });
       if (selectedVendors.length) {
         await Promise.all(
           selectedVendors.map((vendorId) => {
@@ -335,7 +408,7 @@ function CreateEventWizard() {
         {step === 2 && (
           <Card
             title="Step 3 — Ownership & Category"
-            desc="Assign organizational entity, facility location, and industrial sector"
+            desc="Assign the seller's business, plant, warehouse and industrial sector"
           >
             <div className="space-y-4 text-sm">
               <div>
@@ -383,6 +456,18 @@ function CreateEventWizard() {
                   onChange={(e) => setFacility(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-border bg-background p-3 focus:outline-none"
                 />
+              </div>
+              <div className="border-t border-border pt-4">
+                <div className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Warehouse details</div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Plant / Unit" value={plant} onChange={setPlant} placeholder="Pune Processing Plant" />
+                  <Field label="Warehouse name" value={warehouseName} onChange={setWarehouseName} placeholder="Pune Central Warehouse" />
+                  <Field label="Warehouse contact" value={warehouseContact} onChange={setWarehouseContact} placeholder="Contact person or phone" />
+                  <Field label="Warehouse address" value={warehouseAddress} onChange={setWarehouseAddress} placeholder="Plot, road, industrial area" />
+                  <Field label="City" value={warehouseCity} onChange={setWarehouseCity} placeholder="Pune" />
+                  <Field label="State" value={warehouseState} onChange={setWarehouseState} placeholder="Maharashtra" />
+                  <Field label="Pincode" value={warehousePincode} onChange={setWarehousePincode} placeholder="411001" />
+                </div>
               </div>
             </div>
           </Card>
@@ -505,6 +590,17 @@ function CreateEventWizard() {
                   </div>
                 ))}
               </div>
+              <div className="border-t border-border pt-4">
+                <div className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Inspection and access</div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Inspection requirements" value={inspection} onChange={setInspection} placeholder="Inspection requirements" />
+                  <Field label="Inspection date" value={inspectionDate} onChange={setInspectionDate} placeholder="YYYY-MM-DD" />
+                  <Field label="Inspection time" value={inspectionTime} onChange={setInspectionTime} placeholder="10:00 AM - 4:00 PM" />
+                  <Field label="Inspection location" value={inspectionLocation} onChange={setInspectionLocation} placeholder="Warehouse / yard address" />
+                </div>
+                <label className="mt-3 block text-xs font-semibold text-muted-foreground">Safety, PPE and gate-entry guidelines</label>
+                <textarea value={guidelines} onChange={(e) => setGuidelines(e.target.value)} placeholder="Entry requirements, PPE rules, gate entry rules..." className="mt-1 min-h-20 w-full rounded-xl border border-border bg-background p-3 text-sm" />
+              </div>
             </div>
           </Card>
         )}
@@ -598,6 +694,10 @@ function CreateEventWizard() {
           >
             <div className="grid gap-4 sm:grid-cols-2 text-sm">
               <div>
+                <label className="text-xs font-semibold text-muted-foreground">Starting Price (INR) *</label>
+                <input value={startingPrice} onChange={(e) => setStartingPrice(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background p-3 font-mono font-bold" />
+              </div>
+              <div>
                 <label className="text-xs font-semibold text-muted-foreground">
                   {direction === "forward"
                     ? "Reserve Price Baseline (INR) *"
@@ -628,6 +728,25 @@ function CreateEventWizard() {
                   onChange={(e) => setEmdAmount(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-border bg-background p-3 font-mono font-bold"
                 />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Payment Terms</label>
+                <input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="100% before lifting" className="mt-1 w-full rounded-xl border border-border bg-background p-3" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Lifting Period</label>
+                <div className="mt-1 flex gap-2">
+                  <input value={liftingPeriod} onChange={(e) => setLiftingPeriod(e.target.value)} className="w-full rounded-xl border border-border bg-background p-3" />
+                  <select value={liftingUnit} onChange={(e) => setLiftingUnit(e.target.value)} className="rounded-xl border border-border bg-background p-3"><option>Days</option><option>Weeks</option></select>
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs font-semibold text-muted-foreground">Auction contact</label>
+                <div className="mt-1 grid gap-2 sm:grid-cols-3">
+                  <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Name" className="rounded-xl border border-border bg-background p-3" />
+                  <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="Phone" className="rounded-xl border border-border bg-background p-3" />
+                  <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Email" className="rounded-xl border border-border bg-background p-3" />
+                </div>
               </div>
             </div>
           </Card>
@@ -670,6 +789,18 @@ function CreateEventWizard() {
                   onChange={(e) => setAutoExtendMins(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-border bg-background p-3 font-mono"
                 />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Initial slot (minutes)</label>
+                <input type="number" min="1" value={initialSlotMins} onChange={(e) => setInitialSlotMins(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background p-3 font-mono" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Continuation slot (minutes)</label>
+                <input type="number" min="1" value={continuationSlotMins} onChange={(e) => setContinuationSlotMins(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background p-3 font-mono" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Maximum duration (minutes, max 120)</label>
+                <input type="number" min="1" max="120" value={maximumDurationMins} onChange={(e) => setMaximumDurationMins(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background p-3 font-mono" />
               </div>
             </div>
           </Card>
@@ -813,6 +944,30 @@ function CreateEventWizard() {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="text-xs font-semibold text-muted-foreground">{label}</label>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="mt-1 w-full rounded-xl border border-border bg-background p-3 focus:outline-none"
+      />
     </div>
   );
 }

@@ -32,6 +32,11 @@ export const Route = createFileRoute("/auth")({
 
 type Role = "buyer" | "seller";
 
+const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+const isIndianMobile = (value: string) => /^(?:\+91[\s-]?)?[6-9]\d{9}$/.test(value.trim());
+const isStrongPassword = (value: string) =>
+  value.length >= 8 && /[A-Z]/.test(value) && /\d/.test(value) && /[^A-Za-z0-9]/.test(value);
+
 function AuthPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
@@ -108,6 +113,18 @@ function AuthPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!isEmail(email)) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    if (mode === "signup" && !isIndianMobile(phone)) {
+      setError("Enter a valid Indian mobile number.");
+      return;
+    }
+    if (mode === "signup" && !isStrongPassword(password)) {
+      setError("Password must be 8+ characters with uppercase, number, and symbol.");
+      return;
+    }
     setBusy(true);
     try {
       if (mode === "signup") {
@@ -198,7 +215,7 @@ function AuthPage() {
               value={password}
               onChange={setPassword}
               required
-              minLength={6}
+              minLength={8}
             />
 
             {error && (
