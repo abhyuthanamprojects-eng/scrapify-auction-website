@@ -57,6 +57,37 @@ const isPan = (value: string) => /^[A-Z]{5}\d{4}[A-Z]$/.test(value.trim().toUppe
 const isIfsc = (value: string) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(value.trim().toUpperCase());
 const OTP_LENGTH = 4;
 
+const derivePanFromGstin = (gstin: string) => gstin.slice(2, 12).toUpperCase();
+
+const objectValue = (value: unknown, keys: string[]) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+  const record = value as Record<string, unknown>;
+  for (const key of keys) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+  }
+  return "";
+};
+
+const formatGstAddress = (value: unknown) => {
+  if (typeof value === "string") return value.trim();
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+  const parts = [
+    objectValue(value, ["address", "address_line1", "address_line_1", "principal_place_address"]),
+    objectValue(value, ["address_line2", "address_line_2"]),
+    objectValue(value, ["building_name", "building_number", "floor_number"]),
+    objectValue(value, ["street", "locality", "location", "district"]),
+    objectValue(value, ["city", "city_name", "town"]),
+    objectValue(value, ["pincode", "pin_code", "postal_code"]),
+  ].filter(Boolean);
+  return [...new Set(parts)].join(", ");
+};
+
+const gstAddressLocation = (value: unknown) => ({
+  city: objectValue(value, ["city", "city_name", "town", "district"]),
+  state: objectValue(value, ["state", "state_name"]),
+});
+
 const rateLimitSeconds = (cause: unknown) => {
   if (!(cause instanceof Error)) return 0;
   const error = cause as Error & { status?: number; retryAfter?: number };
@@ -770,6 +801,7 @@ function Step3({
     city: state.city,
     state: state.state,
     gstNumber: state.gstNumber,
+    entityType: state.entityType,
     panNumber: state.panNumber,
     licenseNumber: state.licenseNumber,
     contactName: state.contactName,
@@ -793,6 +825,76 @@ function Step3({
   const [warehousePincodeResolved, setWarehousePincodeResolved] = useState(
     Boolean(state.warehousePincode && state.warehouseCity && state.warehouseState),
   );
+  const [gstLookup, setGstLookup] = useState<Record<string, any> | null>(null);
+  const [gstLoading, setGstLoading] = useState(false);
+  const [gstError, setGstError] = useState<string | null>(null);
+  const [gstAddressAutofilled, setGstAddressAutofilled] = useState(false);
+  const gstDebounce = useRef<number | undefined>(undefined);
+  const gstRequestId = useRef(0);
+
+  useEffect(
+    () => () => {
+      if (gstDebounce.current !== undefined) window.clearTimeout(gstDebounce.current);
+    },
+    [],
+  );
+
+  const onGstinChange = (value: string) => {
+    const gstin = value
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toUpperCase()
+      .slice(0, 15);
+    if (gstDebounce.current !== undefined) window.clearTimeout(gstDebounce.current);
+    const requestId = ++gstRequestId.current;
+    setF((previous) => ({
+      ...previous,
+      gstNumber: gstin,
+      companyName: "",
+      entityType: "",
+      panNumber: "",
+      ...(gstAddressAutofilled ? { registeredAddress: "" } : {}),
+    }));
+    setGstLookup(null);
+    setGstError(null);
+    setGstAddressAutofilled(false);
+    if (!isGstin(gstin)) {
+      setGstLoading(false);
+      return;
+    }
+
+    setGstLoading(true);
+    gstDebounce.current = window.setTimeout(async () => {
+      try {
+        const response = await api.verifyGstin(gstin);
+        const details = response?.data ?? response;
+        if (requestId !== gstRequestId.current) return;
+        if (details?.gstin_status !== "GSTIN_VERIFIED") {
+          throw new Error(details?.last_error_code || "This GSTIN could not be verified.");
+        }
+        const location = gstAddressLocation(details.gst_registered_address);
+        const address = formatGstAddress(details.gst_registered_address);
+        setF((previous) => ({
+          ...previous,
+          gstNumber: String(details.gstin ?? gstin).toUpperCase(),
+          companyName: String(details.legal_business_name ?? "").trim(),
+          entityType: String(details.entity_type_label ?? details.entity_type ?? "").trim(),
+          panNumber: derivePanFromGstin(String(details.gstin ?? gstin)),
+          ...(address ? { registeredAddress: address } : {}),
+          ...(location.city ? { city: location.city } : {}),
+          ...(location.state ? { state: location.state } : {}),
+        }));
+        setGstLookup(details);
+        setGstAddressAutofilled(Boolean(address));
+        setGstError(null);
+      } catch (cause) {
+        if (requestId !== gstRequestId.current) return;
+        setGstLookup(null);
+        setGstError(cause instanceof Error ? cause.message : "GSTIN verification failed.");
+      } finally {
+        if (requestId === gstRequestId.current) setGstLoading(false);
+      }
+    }, 500);
+  };
 
   const onPincodeChange = async (value: string) => {
     const pincode = value.replace(/\D/g, "").slice(0, 6);
@@ -868,6 +970,8 @@ function Step3({
     isIndianMobile(f.contactMobile) &&
     isEmail(f.contactEmail) &&
     isGstin(f.gstNumber) &&
+    gstLookup?.gstin_status === "GSTIN_VERIFIED" &&
+    f.entityType.trim().length > 0 &&
     isPan(f.panNumber) &&
     /^\d{6,30}$/.test(f.bankAccount.trim()) &&
     isIfsc(f.bankIfsc) &&
@@ -889,6 +993,7 @@ function Step3({
         email: f.contactEmail,
         phone: f.contactMobile,
         gst_number: f.gstNumber,
+        business_type: f.entityType,
         pan_number: f.panNumber,
         license_number: f.licenseNumber,
         bank_name: f.bankName,
@@ -949,12 +1054,58 @@ function Step3({
           : "All fields are required. Documents are used for one-time KYC verification."
       }
     >
+      <div className="rounded-xl border border-[color:var(--auction)]/30 bg-[color:var(--auction)]/5 p-4">
+        <Field
+          label="GSTIN"
+          value={f.gstNumber}
+          onChange={onGstinChange}
+          maxLength={15}
+          placeholder="15-character GSTIN"
+        />
+        <p className="mt-2 text-xs text-muted-foreground">
+          Enter the GSTIN first. Scrapify verifies it through the active backend provider and fills
+          the legal business details below.
+        </p>
+        {gstLoading && (
+          <p className="mt-2 text-xs font-medium text-[color:var(--auction)]">Verifying GSTIN…</p>
+        )}
+        {gstLookup?.gstin_status === "GSTIN_VERIFIED" && (
+          <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
+            <div className="flex items-center gap-2 font-semibold text-emerald-800">
+              <ShieldCheck className="h-4 w-4" /> GSTIN verified
+            </div>
+            <div className="mt-2 grid gap-1 text-emerald-900/80 sm:grid-cols-3">
+              <span>Entity: {f.entityType || "Detected legal entity"}</span>
+              <span>Status: {gstLookup.gst_registration_status || "Active"}</span>
+              <span>Provider: {gstLookup.gstin_provider || "Configured provider"}</span>
+            </div>
+          </div>
+        )}
+        {gstError && <p className="mt-2 text-xs text-destructive">{gstError}</p>}
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Company Name" value={f.companyName} onChange={set("companyName")} />
+        <Field
+          label="Company Name"
+          value={f.companyName}
+          onChange={set("companyName")}
+          disabled={gstLookup?.gstin_status === "GSTIN_VERIFIED" && Boolean(f.companyName)}
+          readOnly={gstLookup?.gstin_status === "GSTIN_VERIFIED" && Boolean(f.companyName)}
+        />
+        <Field
+          label="Detected Entity Type"
+          value={f.entityType}
+          onChange={set("entityType")}
+          disabled={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
+          readOnly={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
+          placeholder="Filled from verified GSTIN"
+        />
         <Field
           label="Registered Address"
           value={f.registeredAddress}
           onChange={set("registeredAddress")}
+          disabled={gstAddressAutofilled}
+          readOnly={gstAddressAutofilled}
         />
         <Field
           label="PIN Code"
@@ -977,8 +1128,13 @@ function Step3({
           disabled={pincodeLoading}
           readOnly
         />
-        <Field label="GST Number" value={f.gstNumber} onChange={set("gstNumber")} />
-        <Field label="PAN Number" value={f.panNumber} onChange={set("panNumber")} />
+        <Field
+          label="PAN Number (from GSTIN)"
+          value={f.panNumber}
+          onChange={set("panNumber")}
+          disabled={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
+          readOnly={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
+        />
         <Field label="License Number" value={f.licenseNumber} onChange={set("licenseNumber")} />
         <Field label="Contact Person Name" value={f.contactName} onChange={set("contactName")} />
         <Field
@@ -1286,7 +1442,8 @@ function Step4({
     ["Email", state.email, 1],
     ["Company Name", state.companyName, 3],
     ["Registered Address", state.registeredAddress, 3],
-    ["GST Number", state.gstNumber, 3],
+    ["GSTIN", state.gstNumber, 3],
+    ["Entity Type", state.entityType, 3],
     ["PAN Number", state.panNumber, 3],
     ["License Number", state.licenseNumber, 3],
     ["Material Interest", state.materialInterest.join(", "), 3],

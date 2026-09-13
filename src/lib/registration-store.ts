@@ -36,6 +36,7 @@ export type RegistrationState = {
   city: string;
   state: string;
   gstNumber: string;
+  entityType: string;
   panNumber: string;
   licenseNumber: string;
   materialInterest: string[];
@@ -85,6 +86,7 @@ export const emptyRegistration = (): RegistrationState => ({
   city: "",
   state: "",
   gstNumber: "",
+  entityType: "",
   panNumber: "",
   licenseNumber: "",
   materialInterest: [],
