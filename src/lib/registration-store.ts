@@ -46,6 +46,7 @@ export type RegistrationState = {
   bankAccount: string;
   bankIfsc: string;
   bankName: string;
+  bankAccountHolderName: string;
   warehouseName: string;
   warehouseAddress: string;
   warehouseCity: string;
@@ -96,6 +97,7 @@ export const emptyRegistration = (): RegistrationState => ({
   bankAccount: "",
   bankIfsc: "",
   bankName: "",
+  bankAccountHolderName: "",
   warehouseName: "",
   warehouseAddress: "",
   warehouseCity: "",

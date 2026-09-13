@@ -55,6 +55,7 @@ const isGstin = (value: string) =>
   /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(value.trim().toUpperCase());
 const isPan = (value: string) => /^[A-Z]{5}\d{4}[A-Z]$/.test(value.trim().toUpperCase());
 const isIfsc = (value: string) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(value.trim().toUpperCase());
+const isBankAccount = (value: string) => /^\d{6,40}$/.test(value.trim());
 const OTP_LENGTH = 4;
 
 const derivePanFromGstin = (gstin: string) => gstin.slice(2, 12).toUpperCase();
@@ -810,6 +811,7 @@ function Step3({
     bankAccount: state.bankAccount,
     bankIfsc: state.bankIfsc,
     bankName: state.bankName,
+    bankAccountHolderName: state.bankAccountHolderName,
     warehouseName: state.warehouseName,
     warehouseAddress: state.warehouseAddress,
     warehouseCity: state.warehouseCity,
@@ -831,10 +833,17 @@ function Step3({
   const [gstAddressAutofilled, setGstAddressAutofilled] = useState(false);
   const gstDebounce = useRef<number | undefined>(undefined);
   const gstRequestId = useRef(0);
+  const [bankLookup, setBankLookup] = useState<Record<string, any> | null>(null);
+  const [bankLoading, setBankLoading] = useState(false);
+  const [bankError, setBankError] = useState<string | null>(null);
+  const [bankHolderName, setBankHolderName] = useState("");
+  const bankDebounce = useRef<number | undefined>(undefined);
+  const bankRequestId = useRef(0);
 
   useEffect(
     () => () => {
       if (gstDebounce.current !== undefined) window.clearTimeout(gstDebounce.current);
+      if (bankDebounce.current !== undefined) window.clearTimeout(bankDebounce.current);
     },
     [],
   );
@@ -896,6 +905,66 @@ function Step3({
     }, 500);
   };
 
+  const onBankChange = (key: "bankAccount" | "bankIfsc", value: string) => {
+    const normalized =
+      key === "bankAccount"
+        ? value.replace(/\D/g, "").slice(0, 40)
+        : value
+            .replace(/[^a-zA-Z0-9]/g, "")
+            .toUpperCase()
+            .slice(0, 11);
+    const account = key === "bankAccount" ? normalized : f.bankAccount;
+    const ifsc = key === "bankIfsc" ? normalized : f.bankIfsc;
+
+    if (bankDebounce.current !== undefined) window.clearTimeout(bankDebounce.current);
+    const requestId = ++bankRequestId.current;
+    setF((previous) => ({
+      ...previous,
+      [key]: normalized,
+      bankName: "",
+      bankAccountHolderName: "",
+    }));
+    setBankLookup(null);
+    setBankError(null);
+    setBankHolderName("");
+
+    if (!isBankAccount(account) || !isIfsc(ifsc)) {
+      setBankLoading(false);
+      return;
+    }
+
+    setBankLoading(true);
+    bankDebounce.current = window.setTimeout(async () => {
+      try {
+        const response = await api.verifyBank({
+          bank_account: account,
+          bank_account_confirmation: account,
+          ifsc,
+          name: f.companyName || f.contactName || undefined,
+          phone: f.contactMobile || state.mobile || undefined,
+        });
+        const details = response?.data ?? response;
+        if (requestId !== bankRequestId.current) return;
+        if (details?.bank_verification_status !== "BANK_VERIFIED") {
+          throw new Error(details?.last_error_code || "This bank account could not be verified.");
+        }
+        const bankName = String(details.bank_name ?? "").trim();
+        const bankAccountHolderName = String(details.bank_account_holder_name ?? "").trim();
+        setF((previous) => ({ ...previous, bankName, bankAccountHolderName }));
+        setBankLookup(details);
+        setBankHolderName(bankAccountHolderName);
+        setBankError(null);
+      } catch (cause) {
+        if (requestId !== bankRequestId.current) return;
+        setBankLookup(null);
+        setBankHolderName("");
+        setBankError(cause instanceof Error ? cause.message : "Bank verification failed.");
+      } finally {
+        if (requestId === bankRequestId.current) setBankLoading(false);
+      }
+    }, 500);
+  };
+
   const onPincodeChange = async (value: string) => {
     const pincode = value.replace(/\D/g, "").slice(0, 6);
     setF((p) => ({ ...p, pincode, city: "", state: "" }));
@@ -946,7 +1015,10 @@ function Step3({
 
   const allFilled =
     Object.entries(f)
-      .filter(([key]) => !key.startsWith("warehouse"))
+      .filter(
+        ([key]) =>
+          !key.startsWith("warehouse") && key !== "bankName" && key !== "bankAccountHolderName",
+      )
       .every(([, value]) => value.trim().length > 0) &&
     gstFile &&
     panFile &&
@@ -973,8 +1045,9 @@ function Step3({
     gstLookup?.gstin_status === "GSTIN_VERIFIED" &&
     f.entityType.trim().length > 0 &&
     isPan(f.panNumber) &&
-    /^\d{6,30}$/.test(f.bankAccount.trim()) &&
+    isBankAccount(f.bankAccount) &&
     isIfsc(f.bankIfsc) &&
+    bankLookup?.bank_verification_status === "BANK_VERIFIED" &&
     (!warehouseRequired ||
       (warehouseComplete && isIndianPincode(f.warehousePincode) && warehousePincodeResolved));
 
@@ -999,7 +1072,7 @@ function Step3({
         bank_name: f.bankName,
         account_number: f.bankAccount,
         ifsc_code: f.bankIfsc,
-        account_holder_name: f.contactName,
+        account_holder_name: f.bankAccountHolderName || f.contactName,
         material_interest: materials,
         terms_accepted: terms,
         ...(warehouseRequired
@@ -1234,11 +1307,44 @@ function Step3({
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Bank details (for EMD refunds)
         </div>
-        <div className="mt-3 grid gap-4 sm:grid-cols-3">
-          <Field label="Account Number" value={f.bankAccount} onChange={set("bankAccount")} />
-          <Field label="IFSC Code" value={f.bankIfsc} onChange={set("bankIfsc")} />
-          <Field label="Bank Name" value={f.bankName} onChange={set("bankName")} />
+        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Field
+            label="Account Number"
+            value={f.bankAccount}
+            onChange={(value) => onBankChange("bankAccount", value)}
+            type="tel"
+            maxLength={40}
+          />
+          <Field
+            label="IFSC Code"
+            value={f.bankIfsc}
+            onChange={(value) => onBankChange("bankIfsc", value)}
+            maxLength={11}
+          />
+          <Field
+            label="Bank Name (from provider)"
+            value={f.bankName}
+            onChange={() => undefined}
+            readOnly
+          />
+          <Field
+            label="Account Holder Name (from provider)"
+            value={f.bankAccountHolderName}
+            onChange={() => undefined}
+            readOnly
+          />
         </div>
+        {bankLoading && (
+          <p className="mt-2 text-xs text-muted-foreground">Verifying bank account…</p>
+        )}
+        {bankLookup?.bank_verification_status === "BANK_VERIFIED" && (
+          <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700">
+            Bank account verified via {bankLookup.bank_provider || "Sandbox"}.
+            {bankHolderName ? ` Account holder: ${bankHolderName}.` : ""}
+            {!f.bankName ? " The provider did not return a bank name." : ""}
+          </div>
+        )}
+        {bankError && <ErrorLine>{bankError}</ErrorLine>}
       </div>
 
       <div className="mt-2 space-y-3">
