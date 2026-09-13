@@ -51,7 +51,8 @@ const STEPS: { n: WizardStep; label: string; blurb: string }[] = [
 const isIndianMobile = (value: string) => /^(?:\+91[\s-]?)?[6-9]\d{9}$/.test(value.trim());
 const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 const isIndianPincode = (value: string) => /^[1-9]\d{5}$/.test(value.trim());
-const isGstin = (value: string) => /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(value.trim().toUpperCase());
+const isGstin = (value: string) =>
+  /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(value.trim().toUpperCase());
 const isPan = (value: string) => /^[A-Z]{5}\d{4}[A-Z]$/.test(value.trim().toUpperCase());
 const isIfsc = (value: string) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(value.trim().toUpperCase());
 const OTP_LENGTH = 4;
@@ -61,7 +62,10 @@ const rateLimitSeconds = (cause: unknown) => {
   const error = cause as Error & { status?: number; retryAfter?: number };
   if (error.status !== 429) return 0;
   const retryAfter = Number(error.retryAfter);
-  return Math.max(1, Math.min(3600, Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60));
+  return Math.max(
+    1,
+    Math.min(3600, Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60),
+  );
 };
 
 function RegisterWizard() {
@@ -91,7 +95,11 @@ function RegisterWizard() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2 font-display text-lg font-bold">
             <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg bg-white">
-              <img src="/scrapify-auction-app-icon.png" alt="Scrapify Auctions" className="h-full w-full object-contain" />
+              <img
+                src="/scrapify-auction-app-icon.png"
+                alt="Scrapify Auctions"
+                className="h-full w-full object-contain"
+              />
             </span>
             Scrapify<span className="text-[color:var(--gold-soft)]">Auction</span>
           </Link>
@@ -103,12 +111,21 @@ function RegisterWizard() {
 
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="mb-8 rounded-xl border border-border bg-card p-5">
-          <p className="text-sm font-semibold text-foreground">How would you like to use Scrapify?</p>
+          <p className="text-sm font-semibold text-foreground">
+            How would you like to use Scrapify?
+          </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {(["buyer", "seller"] as const).map((role) => (
-              <button key={role} type="button" onClick={() => update({ role })} className={`rounded-lg border p-4 text-left ${state.role === role ? "border-[color:var(--auction)] bg-orange-50" : "border-border"}`}>
+              <button
+                key={role}
+                type="button"
+                onClick={() => update({ role })}
+                className={`rounded-lg border p-4 text-left ${state.role === role ? "border-[color:var(--auction)] bg-orange-50" : "border-border"}`}
+              >
                 <strong className="block uppercase">{role}</strong>
-                <span className="text-sm text-muted-foreground">{role === "buyer" ? "Participate in auctions" : "Create and manage auctions"}</span>
+                <span className="text-sm text-muted-foreground">
+                  {role === "buyer" ? "Participate in auctions" : "Create and manage auctions"}
+                </span>
               </button>
             ))}
           </div>
@@ -339,7 +356,8 @@ function Step1({
 
   const verifyMobile = async () => {
     setError(null);
-    if (!new RegExp(`^\\d{${mobileOtpLength}}$`).test(mobileOtp)) return setError(`Enter the ${mobileOtpLength}-digit mobile OTP.`);
+    if (!new RegExp(`^\\d{${mobileOtpLength}}$`).test(mobileOtp))
+      return setError(`Enter the ${mobileOtpLength}-digit mobile OTP.`);
     try {
       await api.verifyOtp(mobile, mobileOtp, "register");
       const complete = state.emailOtpVerified;
@@ -356,7 +374,8 @@ function Step1({
 
   const verifyEmail = async () => {
     setError(null);
-    if (!new RegExp(`^\\d{${emailOtpLength}}$`).test(emailOtp)) return setError(`Enter the ${emailOtpLength}-digit email OTP.`);
+    if (!new RegExp(`^\\d{${emailOtpLength}}$`).test(emailOtp))
+      return setError(`Enter the ${emailOtpLength}-digit email OTP.`);
     try {
       await api.verifyOtp(email, emailOtp, "register");
       const complete = state.mobileOtpVerified;
@@ -380,7 +399,9 @@ function Step1({
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-sm font-semibold">Mobile OTP</span>
-            {mobileVerified && <span className="text-xs font-semibold text-emerald-600">Verified</span>}
+            {mobileVerified && (
+              <span className="text-xs font-semibold text-emerald-600">Verified</span>
+            )}
           </div>
           <Field
             label="Mobile Number"
@@ -401,22 +422,56 @@ function Step1({
           />
           {!mobileVerified && !mobileOtpSent && (
             <div className="mt-3">
-              <PrimaryButton onClick={sendMobileOtp} disabled={!validMobile || mobileOtpPending || mobileResendIn > 0}>
-                {mobileOtpPending ? "Sending…" : mobileResendIn > 0 ? `Retry in ${mobileResendIn}s` : "Send SMS OTP"}
+              <PrimaryButton
+                onClick={sendMobileOtp}
+                disabled={!validMobile || mobileOtpPending || mobileResendIn > 0}
+              >
+                {mobileOtpPending
+                  ? "Sending…"
+                  : mobileResendIn > 0
+                    ? `Retry in ${mobileResendIn}s`
+                    : "Send SMS OTP"}
               </PrimaryButton>
             </div>
           )}
           {!mobileVerified && mobileOtpSent && (
             <>
-              <Field label="SMS code" type="text" value={mobileOtp} onChange={setMobileOtp} placeholder={`${mobileOtpLength}-digit code`} maxLength={mobileOtpLength} />
+              <Field
+                label="SMS code"
+                type="text"
+                value={mobileOtp}
+                onChange={setMobileOtp}
+                placeholder={`${mobileOtpLength}-digit code`}
+                maxLength={mobileOtpLength}
+              />
               <div className="flex items-center justify-between text-xs">
-                <button type="button" className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground" disabled={mobileResendIn > 0 || mobileOtpPending} onClick={sendMobileOtp}>
-                  {mobileOtpPending ? "Sending…" : mobileResendIn > 0 ? "Resend in " + mobileResendIn + "s" : "Resend SMS"}
+                <button
+                  type="button"
+                  className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground"
+                  disabled={mobileResendIn > 0 || mobileOtpPending}
+                  onClick={sendMobileOtp}
+                >
+                  {mobileOtpPending
+                    ? "Sending…"
+                    : mobileResendIn > 0
+                      ? "Resend in " + mobileResendIn + "s"
+                      : "Resend SMS"}
                 </button>
-                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setMobileOtpSent(false)}>Change</button>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setMobileOtpSent(false)}
+                >
+                  Change
+                </button>
               </div>
               <div className="mt-3">
-                <PrimaryButton onClick={verifyMobile} disabled={mobileOtp.length !== mobileOtpLength}>Verify mobile</PrimaryButton>
+                <PrimaryButton
+                  onClick={verifyMobile}
+                  disabled={mobileOtp.length !== mobileOtpLength}
+                >
+                  Verify mobile
+                </PrimaryButton>
               </div>
             </>
           )}
@@ -425,7 +480,9 @@ function Step1({
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-sm font-semibold">Email OTP</span>
-            {emailVerified && <span className="text-xs font-semibold text-emerald-600">Verified</span>}
+            {emailVerified && (
+              <span className="text-xs font-semibold text-emerald-600">Verified</span>
+            )}
           </div>
           <Field
             label="Email ID"
@@ -445,22 +502,53 @@ function Step1({
           />
           {!emailVerified && !emailOtpSent && (
             <div className="mt-3">
-              <PrimaryButton onClick={sendEmailOtp} disabled={!validEmail || emailOtpPending || emailResendIn > 0}>
-                {emailOtpPending ? "Sending…" : emailResendIn > 0 ? `Retry in ${emailResendIn}s` : "Send email OTP"}
+              <PrimaryButton
+                onClick={sendEmailOtp}
+                disabled={!validEmail || emailOtpPending || emailResendIn > 0}
+              >
+                {emailOtpPending
+                  ? "Sending…"
+                  : emailResendIn > 0
+                    ? `Retry in ${emailResendIn}s`
+                    : "Send email OTP"}
               </PrimaryButton>
             </div>
           )}
           {!emailVerified && emailOtpSent && (
             <>
-              <Field label="Email code" type="text" value={emailOtp} onChange={setEmailOtp} placeholder={`${emailOtpLength}-digit code`} maxLength={emailOtpLength} />
+              <Field
+                label="Email code"
+                type="text"
+                value={emailOtp}
+                onChange={setEmailOtp}
+                placeholder={`${emailOtpLength}-digit code`}
+                maxLength={emailOtpLength}
+              />
               <div className="flex items-center justify-between text-xs">
-                <button type="button" className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground" disabled={emailResendIn > 0 || emailOtpPending} onClick={sendEmailOtp}>
-                  {emailOtpPending ? "Sending…" : emailResendIn > 0 ? "Resend in " + emailResendIn + "s" : "Resend email"}
+                <button
+                  type="button"
+                  className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground"
+                  disabled={emailResendIn > 0 || emailOtpPending}
+                  onClick={sendEmailOtp}
+                >
+                  {emailOtpPending
+                    ? "Sending…"
+                    : emailResendIn > 0
+                      ? "Resend in " + emailResendIn + "s"
+                      : "Resend email"}
                 </button>
-                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setEmailOtpSent(false)}>Change</button>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setEmailOtpSent(false)}
+                >
+                  Change
+                </button>
               </div>
               <div className="mt-3">
-                <PrimaryButton onClick={verifyEmail} disabled={emailOtp.length !== emailOtpLength}>Verify email</PrimaryButton>
+                <PrimaryButton onClick={verifyEmail} disabled={emailOtp.length !== emailOtpLength}>
+                  Verify email
+                </PrimaryButton>
               </div>
             </>
           )}
@@ -480,7 +568,8 @@ function Step1({
         Register with Google
       </button>
       <p className="text-center text-xs text-muted-foreground">
-        Google verifies your email. Verify mobile OTP first, then you can continue directly to Company Information &amp; KYC.
+        Google verifies your email. Verify mobile OTP first, then you can continue directly to
+        Company Information &amp; KYC.
       </p>
     </FormShell>
   );
@@ -501,16 +590,22 @@ function Step2({
   const [showB, setShowB] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const submitInFlight = useRef(false);
 
   const username = state.email || state.mobile;
 
   const strength = useMemo(() => scorePassword(password), [password]);
   const matches = password.length > 0 && password === confirm;
-  const strong = password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password);
+  const strong =
+    password.length >= 8 &&
+    /[A-Z]/.test(password) &&
+    /\d/.test(password) &&
+    /[^A-Za-z0-9]/.test(password);
   const canContinue = matches && strong;
 
   const submit = async () => {
-    if (!canContinue) return;
+    if (!canContinue || submitInFlight.current) return;
+    submitInFlight.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -533,6 +628,7 @@ function Step2({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Account could not be created.");
     } finally {
+      submitInFlight.current = false;
       setBusy(false);
     }
   };
@@ -691,12 +787,16 @@ function Step3({
   });
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [warehousePincodeLoading, setWarehousePincodeLoading] = useState(false);
-  const [pincodeResolved, setPincodeResolved] = useState(Boolean(state.pincode && state.city && state.state));
-  const [warehousePincodeResolved, setWarehousePincodeResolved] = useState(Boolean(state.warehousePincode && state.warehouseCity && state.warehouseState));
+  const [pincodeResolved, setPincodeResolved] = useState(
+    Boolean(state.pincode && state.city && state.state),
+  );
+  const [warehousePincodeResolved, setWarehousePincodeResolved] = useState(
+    Boolean(state.warehousePincode && state.warehouseCity && state.warehouseState),
+  );
 
   const onPincodeChange = async (value: string) => {
-    const pincode = value.replace(/\D/g, '').slice(0, 6);
-    setF((p) => ({ ...p, pincode, city: '', state: '' }));
+    const pincode = value.replace(/\D/g, "").slice(0, 6);
+    setF((p) => ({ ...p, pincode, city: "", state: "" }));
     setPincodeResolved(false);
     if (isIndianPincode(pincode)) {
       setPincodeLoading(true);
@@ -712,8 +812,8 @@ function Step3({
     }
   };
   const onWarehousePincodeChange = async (value: string) => {
-    const pincode = value.replace(/\D/g, '').slice(0, 6);
-    setF((p) => ({ ...p, warehousePincode: pincode, warehouseCity: '', warehouseState: '' }));
+    const pincode = value.replace(/\D/g, "").slice(0, 6);
+    setF((p) => ({ ...p, warehousePincode: pincode, warehouseCity: "", warehouseState: "" }));
     setWarehousePincodeResolved(false);
     if (!isIndianPincode(pincode)) return;
     setWarehousePincodeLoading(true);
@@ -722,7 +822,9 @@ function Step3({
       setF((p) => ({ ...p, warehouseCity: result.city, warehouseState: result.state }));
       setWarehousePincodeResolved(true);
     } catch {
-      setError("We could not resolve the warehouse PIN code. Please enter a valid Indian PIN code.");
+      setError(
+        "We could not resolve the warehouse PIN code. Please enter a valid Indian PIN code.",
+      );
     } finally {
       setWarehousePincodeLoading(false);
     }
@@ -759,12 +861,18 @@ function Step3({
     f.warehouseState,
     f.warehousePincode,
   ].every((value) => value.trim().length > 0);
-  const formComplete = allFilled &&
-    isIndianPincode(f.pincode) && pincodeResolved &&
+  const formComplete =
+    allFilled &&
+    isIndianPincode(f.pincode) &&
+    pincodeResolved &&
     isIndianMobile(f.contactMobile) &&
-    isEmail(f.contactEmail) && isGstin(f.gstNumber) && isPan(f.panNumber) &&
-    /^\d{6,30}$/.test(f.bankAccount.trim()) && isIfsc(f.bankIfsc) &&
-    (!warehouseRequired || (warehouseComplete && isIndianPincode(f.warehousePincode) && warehousePincodeResolved));
+    isEmail(f.contactEmail) &&
+    isGstin(f.gstNumber) &&
+    isPan(f.panNumber) &&
+    /^\d{6,30}$/.test(f.bankAccount.trim()) &&
+    isIfsc(f.bankIfsc) &&
+    (!warehouseRequired ||
+      (warehouseComplete && isIndianPincode(f.warehousePincode) && warehousePincodeResolved));
 
   const submit = async () => {
     if (!formComplete) return;
@@ -855,8 +963,20 @@ function Step3({
           maxLength={6}
           placeholder={pincodeLoading ? "Looking up…" : "6-digit PIN code"}
         />
-        <Field label="City (from PIN API)" value={f.city} onChange={set("city")} disabled={pincodeLoading} readOnly />
-        <Field label="State (from PIN API)" value={f.state} onChange={set("state")} disabled={pincodeLoading} readOnly />
+        <Field
+          label="City (from PIN API)"
+          value={f.city}
+          onChange={set("city")}
+          disabled={pincodeLoading}
+          readOnly
+        />
+        <Field
+          label="State (from PIN API)"
+          value={f.state}
+          onChange={set("state")}
+          disabled={pincodeLoading}
+          readOnly
+        />
         <Field label="GST Number" value={f.gstNumber} onChange={set("gstNumber")} />
         <Field label="PAN Number" value={f.panNumber} onChange={set("panNumber")} />
         <Field label="License Number" value={f.licenseNumber} onChange={set("licenseNumber")} />
@@ -888,13 +1008,39 @@ function Step3({
           </p>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <Field label="Warehouse name" value={f.warehouseName} onChange={set("warehouseName")} />
-            <Field label="Warehouse PIN code" value={f.warehousePincode} onChange={onWarehousePincodeChange} maxLength={6} placeholder={warehousePincodeLoading ? "Looking up…" : "6-digit PIN code"} />
+            <Field
+              label="Warehouse PIN code"
+              value={f.warehousePincode}
+              onChange={onWarehousePincodeChange}
+              maxLength={6}
+              placeholder={warehousePincodeLoading ? "Looking up…" : "6-digit PIN code"}
+            />
             <div className="sm:col-span-2">
-              <Field label="Warehouse address" value={f.warehouseAddress} onChange={set("warehouseAddress")} />
+              <Field
+                label="Warehouse address"
+                value={f.warehouseAddress}
+                onChange={set("warehouseAddress")}
+              />
             </div>
-            <Field label="Warehouse city (from PIN API)" value={f.warehouseCity} onChange={set("warehouseCity")} disabled={warehousePincodeLoading} readOnly />
-            <Field label="Warehouse state (from PIN API)" value={f.warehouseState} onChange={set("warehouseState")} disabled={warehousePincodeLoading} readOnly />
-            <Field label="Site contact name (optional)" value={f.warehouseContact} onChange={set("warehouseContact")} />
+            <Field
+              label="Warehouse city (from PIN API)"
+              value={f.warehouseCity}
+              onChange={set("warehouseCity")}
+              disabled={warehousePincodeLoading}
+              readOnly
+            />
+            <Field
+              label="Warehouse state (from PIN API)"
+              value={f.warehouseState}
+              onChange={set("warehouseState")}
+              disabled={warehousePincodeLoading}
+              readOnly
+            />
+            <Field
+              label="Site contact name (optional)"
+              value={f.warehouseContact}
+              onChange={set("warehouseContact")}
+            />
           </div>
         </div>
       )}
@@ -1154,7 +1300,11 @@ function Step4({
       ? [
           ["Warehouse Name", state.warehouseName, 3] as [string, string, WizardStep],
           ["Warehouse Address", state.warehouseAddress, 3] as [string, string, WizardStep],
-          ["Warehouse City / State", `${state.warehouseCity}, ${state.warehouseState}`, 3] as [string, string, WizardStep],
+          ["Warehouse City / State", `${state.warehouseCity}, ${state.warehouseState}`, 3] as [
+            string,
+            string,
+            WizardStep,
+          ],
           ["Warehouse PIN Code", state.warehousePincode, 3] as [string, string, WizardStep],
         ]
       : []),
