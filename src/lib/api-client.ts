@@ -39,6 +39,7 @@ export function getAnonymousKey(): string {
 
 class ScrapifyApiClient {
   private token: string | null = null;
+  private otpRequests = new Map<string, Promise<any>>();
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -88,9 +89,12 @@ class ScrapifyApiClient {
         const error = new Error(json.message || json.error?.message || `API Error: ${res.status}`) as Error & {
           status?: number;
           code?: string;
+          retryAfter?: number;
         };
         error.status = res.status;
         error.code = json.error?.code ?? json.code;
+        const retryAfter = Number(res.headers.get("Retry-After"));
+        if (Number.isFinite(retryAfter) && retryAfter > 0) error.retryAfter = retryAfter;
         throw error;
       }
       return json;
@@ -124,10 +128,24 @@ class ScrapifyApiClient {
   }
 
   async requestOtp(identifier: string, purpose = "register") {
-    return this.request<any>("/auth/request-otp", {
+    const key = `${purpose}:${identifier.trim().toLowerCase()}`;
+    const existing = this.otpRequests.get(key);
+    if (existing) return existing;
+
+    const request = this.request<any>("/auth/request-otp", {
       method: "POST",
       body: JSON.stringify({ identifier, purpose }),
     });
+    this.otpRequests.set(key, request);
+    void request.then(
+      () => {
+        if (this.otpRequests.get(key) === request) this.otpRequests.delete(key);
+      },
+      () => {
+        if (this.otpRequests.get(key) === request) this.otpRequests.delete(key);
+      },
+    );
+    return request;
   }
 
   async verifyOtp(identifier: string, code: string, purpose = "login") {

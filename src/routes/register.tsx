@@ -54,6 +54,15 @@ const isIndianPincode = (value: string) => /^[1-9]\d{5}$/.test(value.trim());
 const isGstin = (value: string) => /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(value.trim().toUpperCase());
 const isPan = (value: string) => /^[A-Z]{5}\d{4}[A-Z]$/.test(value.trim().toUpperCase());
 const isIfsc = (value: string) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(value.trim().toUpperCase());
+const OTP_LENGTH = 4;
+
+const rateLimitSeconds = (cause: unknown) => {
+  if (!(cause instanceof Error)) return 0;
+  const error = cause as Error & { status?: number; retryAfter?: number };
+  if (error.status !== 429) return 0;
+  const retryAfter = Number(error.retryAfter);
+  return Math.max(1, Math.min(3600, Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60));
+};
 
 function RegisterWizard() {
   const { state, update } = useRegistration();
@@ -226,10 +235,13 @@ function Step1({
   const [emailOtpSent, setEmailOtpSent] = useState(state.emailOtpVerified);
   const [mobileOtp, setMobileOtp] = useState("");
   const [emailOtp, setEmailOtp] = useState("");
-  const [mobileOtpLength, setMobileOtpLength] = useState(4);
-  const [emailOtpLength, setEmailOtpLength] = useState(6);
+  const [mobileOtpLength, setMobileOtpLength] = useState(OTP_LENGTH);
+  const [emailOtpLength, setEmailOtpLength] = useState(OTP_LENGTH);
   const [mobileResendIn, setMobileResendIn] = useState(0);
   const [emailResendIn, setEmailResendIn] = useState(0);
+  const [mobileOtpPending, setMobileOtpPending] = useState(false);
+  const [emailOtpPending, setEmailOtpPending] = useState(false);
+  const otpRequestsInFlight = useRef(new Set<"mobile" | "email">());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -282,30 +294,46 @@ function Step1({
   };
 
   const sendMobileOtp = async () => {
+    if (otpRequestsInFlight.current.has("mobile")) return;
     setError(null);
     if (!validMobile) return setError("Enter a valid 10-digit mobile number.");
+    otpRequestsInFlight.current.add("mobile");
+    setMobileOtpPending(true);
     try {
       const response = await api.requestOtp(mobile, "register");
       update({ mobile });
-      setMobileOtpLength(Number(response.otp_length) || 4);
+      setMobileOtpLength(OTP_LENGTH);
       setMobileOtpSent(true);
       setMobileResendIn(response.resend_after ?? 30);
     } catch (cause) {
+      const retryAfter = rateLimitSeconds(cause);
+      if (retryAfter) setMobileResendIn(retryAfter);
       setError(cause instanceof Error ? cause.message : "Could not send mobile OTP.");
+    } finally {
+      otpRequestsInFlight.current.delete("mobile");
+      setMobileOtpPending(false);
     }
   };
 
   const sendEmailOtp = async () => {
+    if (otpRequestsInFlight.current.has("email")) return;
     setError(null);
     if (!validEmail) return setError("Enter a valid email address.");
+    otpRequestsInFlight.current.add("email");
+    setEmailOtpPending(true);
     try {
       const response = await api.requestOtp(email, "register");
       update({ email });
-      setEmailOtpLength(Number(response.otp_length) || 6);
+      setEmailOtpLength(OTP_LENGTH);
       setEmailOtpSent(true);
       setEmailResendIn(response.resend_after ?? 30);
     } catch (cause) {
+      const retryAfter = rateLimitSeconds(cause);
+      if (retryAfter) setEmailResendIn(retryAfter);
       setError(cause instanceof Error ? cause.message : "Could not send email OTP.");
+    } finally {
+      otpRequestsInFlight.current.delete("email");
+      setEmailOtpPending(false);
     }
   };
 
@@ -373,15 +401,17 @@ function Step1({
           />
           {!mobileVerified && !mobileOtpSent && (
             <div className="mt-3">
-              <PrimaryButton onClick={sendMobileOtp} disabled={!validMobile}>Send SMS OTP</PrimaryButton>
+              <PrimaryButton onClick={sendMobileOtp} disabled={!validMobile || mobileOtpPending || mobileResendIn > 0}>
+                {mobileOtpPending ? "Sending…" : mobileResendIn > 0 ? `Retry in ${mobileResendIn}s` : "Send SMS OTP"}
+              </PrimaryButton>
             </div>
           )}
           {!mobileVerified && mobileOtpSent && (
             <>
               <Field label="SMS code" type="text" value={mobileOtp} onChange={setMobileOtp} placeholder={`${mobileOtpLength}-digit code`} maxLength={mobileOtpLength} />
               <div className="flex items-center justify-between text-xs">
-                <button type="button" className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground" disabled={mobileResendIn > 0} onClick={sendMobileOtp}>
-                  {mobileResendIn > 0 ? "Resend in " + mobileResendIn + "s" : "Resend SMS"}
+                <button type="button" className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground" disabled={mobileResendIn > 0 || mobileOtpPending} onClick={sendMobileOtp}>
+                  {mobileOtpPending ? "Sending…" : mobileResendIn > 0 ? "Resend in " + mobileResendIn + "s" : "Resend SMS"}
                 </button>
                 <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setMobileOtpSent(false)}>Change</button>
               </div>
@@ -415,15 +445,17 @@ function Step1({
           />
           {!emailVerified && !emailOtpSent && (
             <div className="mt-3">
-              <PrimaryButton onClick={sendEmailOtp} disabled={!validEmail}>Send email OTP</PrimaryButton>
+              <PrimaryButton onClick={sendEmailOtp} disabled={!validEmail || emailOtpPending || emailResendIn > 0}>
+                {emailOtpPending ? "Sending…" : emailResendIn > 0 ? `Retry in ${emailResendIn}s` : "Send email OTP"}
+              </PrimaryButton>
             </div>
           )}
           {!emailVerified && emailOtpSent && (
             <>
               <Field label="Email code" type="text" value={emailOtp} onChange={setEmailOtp} placeholder={`${emailOtpLength}-digit code`} maxLength={emailOtpLength} />
               <div className="flex items-center justify-between text-xs">
-                <button type="button" className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground" disabled={emailResendIn > 0} onClick={sendEmailOtp}>
-                  {emailResendIn > 0 ? "Resend in " + emailResendIn + "s" : "Resend email"}
+                <button type="button" className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground" disabled={emailResendIn > 0 || emailOtpPending} onClick={sendEmailOtp}>
+                  {emailOtpPending ? "Sending…" : emailResendIn > 0 ? "Resend in " + emailResendIn + "s" : "Resend email"}
                 </button>
                 <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setEmailOtpSent(false)}>Change</button>
               </div>
