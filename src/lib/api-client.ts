@@ -86,7 +86,9 @@ class ScrapifyApiClient {
           this.setToken(null);
           if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("scrapify:auth"));
         }
-        const error = new Error(json.message || json.error?.message || `API Error: ${res.status}`) as Error & {
+        const error = new Error(
+          json.message || json.error?.message || `API Error: ${res.status}`,
+        ) as Error & {
           status?: number;
           code?: string;
           retryAfter?: number;
@@ -108,7 +110,11 @@ class ScrapifyApiClient {
   async login(identifier: string, password: string, loginContext?: "buyer" | "seller") {
     const res = await this.request<any>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ identifier, password, ...(loginContext ? { login_context: loginContext } : {}) }),
+      body: JSON.stringify({
+        identifier,
+        password,
+        ...(loginContext ? { login_context: loginContext } : {}),
+      }),
     });
     if (res.token) {
       this.setToken(res.token);
@@ -235,10 +241,30 @@ class ScrapifyApiClient {
     return this.request<any>(`/vendors/${vendorCode}/kyc-status`);
   }
 
-  async getBusinessVerification() { return this.request<any>("/kyb/status"); }
-  async verifyGstin(gstin: string, business_name?: string) { return this.request<any>("/kyb/gstin/verify", { method: "POST", body: JSON.stringify({ gstin, business_name }) }); }
-  async verifyBank(data: { bank_account: string; bank_account_confirmation: string; ifsc: string; name?: string; phone?: string }) { return this.request<any>("/kyb/bank/verify", { method: "POST", body: JSON.stringify(data) }); }
-  async requestBusinessReverification() { return this.request<any>("/kyb/reverify", { method: "POST" }); }
+  async getBusinessVerification() {
+    return this.request<any>("/kyb/status");
+  }
+  async verifyGstin(gstin: string, business_name?: string) {
+    return this.request<any>("/kyb/gstin/verify", {
+      method: "POST",
+      body: JSON.stringify({ gstin, business_name }),
+    });
+  }
+  async verifyPan(data: { pan: string; name?: string; date_of_birth?: string }) {
+    return this.request<any>("/kyb/pan/verify", { method: "POST", body: JSON.stringify(data) });
+  }
+  async verifyBank(data: {
+    bank_account: string;
+    bank_account_confirmation: string;
+    ifsc: string;
+    name?: string;
+    phone?: string;
+  }) {
+    return this.request<any>("/kyb/bank/verify", { method: "POST", body: JSON.stringify(data) });
+  }
+  async requestBusinessReverification() {
+    return this.request<any>("/kyb/reverify", { method: "POST" });
+  }
 
   async registerVendor(data: Record<string, unknown>) {
     return this.request<any>("/vendors/register", {
@@ -256,7 +282,13 @@ class ScrapifyApiClient {
 
   /* ---------------- Pincode Lookup ---------------- */
   async lookupPincode(pincode: string) {
-    return this.request<{ pincode: string; city: string; state: string; country: string; post_offices: Array<{ name: string; type: string; delivery: string }> }>(`/pincode/${pincode}`);
+    return this.request<{
+      pincode: string;
+      city: string;
+      state: string;
+      country: string;
+      post_offices: Array<{ name: string; type: string; delivery: string }>;
+    }>(`/pincode/${pincode}`);
   }
 
   /* ---------------- Categories & Dynamic Attributes ---------------- */
@@ -265,7 +297,11 @@ class ScrapifyApiClient {
   }
 
   async getPlatformConfig() {
-    return this.request<{ vendor_registration_fee: number; currency: string; auction_edit_lock_hours: number }>("/platform-config");
+    return this.request<{
+      vendor_registration_fee: number;
+      currency: string;
+      auction_edit_lock_hours: number;
+    }>("/platform-config");
   }
 
   /* ---------------- Auctions & Lots ---------------- */
@@ -454,7 +490,10 @@ class ScrapifyApiClient {
   }
 
   async declineFallback(id: number, reason: string) {
-    return this.request<ApiResponse<any>>(`/fallback-offers/${id}/decline`, { method: "POST", body: JSON.stringify({ reason }) });
+    return this.request<ApiResponse<any>>(`/fallback-offers/${id}/decline`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
   }
 
   /* ---------------- Orders & Fulfilment ---------------- */
