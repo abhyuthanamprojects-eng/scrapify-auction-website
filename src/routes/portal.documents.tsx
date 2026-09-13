@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   FileText,
   ShieldCheck,
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Card, PageHead, Pill, Table } from "@/components/console/shell";
 import { toast } from "sonner";
+import { api } from "@/lib/api-client";
 import {
   Dialog,
   DialogContent,
@@ -49,7 +50,32 @@ interface DocumentItem {
 }
 
 function VendorDocumentsPage() {
-  const [docs] = useState<DocumentItem[]>([]);
+  const { user } = Route.useRouteContext();
+  const [docs, setDocs] = useState<DocumentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const vendorCode = user?.vendor?.code || user?.vendor?.id;
+    if (!vendorCode) {
+      setLoading(false);
+      return;
+    }
+    api.getVendorDocuments(vendorCode)
+      .then((response) => {
+        const rows = Array.isArray(response?.data) ? response.data : [];
+        setDocs(rows.map((row: any) => ({
+          id: String(row.id), name: String(row.name || row.file_name || row.kind),
+          type: String(row.kind || row.key || "Document"),
+          status: row.status === "approved" ? "verified" : row.status === "rejected" ? "rejected" : "under_review",
+          size: row.size_kb ? `${row.size_kb} KB` : "—",
+          expiry: "No expiry", reason: row.reason || undefined,
+          format: String(row.file_name || "").split(".").pop()?.toUpperCase() || "FILE",
+          uploadedAt: row.uploaded_at ? new Date(row.uploaded_at).toLocaleDateString() : undefined,
+        })));
+      })
+      .catch((error) => toast.error(error instanceof Error ? error.message : "Could not load documents."))
+      .finally(() => setLoading(false));
+  }, [user]);
 
   // Viewer State
   const [viewDoc, setViewDoc] = useState<DocumentItem | null>(null);
@@ -115,7 +141,9 @@ function VendorDocumentsPage() {
 
       <Card title="Statutory & Compliance Certificates" desc="Tier 1 Vendor Clearance Status">
         <Table head={["Document Name", "Category", "Size / Expiry", "Verification Status", "Actions"]}>
-          {docs.length === 0 ? (
+          {loading ? (
+            <tr><td colSpan={5} className="py-8 text-center text-sm text-muted-foreground">Loading documents…</td></tr>
+          ) : docs.length === 0 ? (
             <tr key="empty-documents">
               <td colSpan={5} className="py-8 text-center text-sm text-muted-foreground">No documents are available from the API.</td>
             </tr>
@@ -197,8 +225,17 @@ function VendorDocumentsPage() {
 
             <div className="mt-4 flex gap-2">
               <button
-                onClick={() => {
-                  toast.info("Document download is not available from the API yet.");
+                onClick={async () => {
+                  const vendorCode = user?.vendor?.code || user?.vendor?.id;
+                  if (!vendorCode || !viewDoc) return;
+                  try {
+                    const blob = await api.downloadVendorDocument(vendorCode, viewDoc.id);
+                    const url = URL.createObjectURL(blob);
+                    window.open(url, "_blank", "noopener,noreferrer");
+                    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Document download failed.");
+                  }
                 }}
                 className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--navy)] px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90"
               >

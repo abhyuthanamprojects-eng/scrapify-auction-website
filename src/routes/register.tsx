@@ -1017,13 +1017,15 @@ function Step3({
     Object.entries(f)
       .filter(
         ([key]) =>
-          !key.startsWith("warehouse") && key !== "bankName" && key !== "bankAccountHolderName",
+          !key.startsWith("warehouse") &&
+          key !== "licenseNumber" &&
+          key !== "bankName" &&
+          key !== "bankAccountHolderName",
       )
       .every(([, value]) => value.trim().length > 0) &&
     gstFile &&
     panFile &&
     chequeFile &&
-    licenseFile &&
     materials.length > 0 &&
     terms;
 
@@ -1092,12 +1094,17 @@ function Step3({
       const vendorCode =
         vendorResponse.data?.code ?? vendorResponse.code ?? vendorResponse.id ?? state.vendorCode;
       if (!vendorCode) throw new Error("Vendor code missing from registration response.");
-      await Promise.all([
-        api.uploadVendorDocument(vendorCode, "license", "License", licenseFile!),
+      const documentUploads = [
         api.uploadVendorDocument(vendorCode, "gst", "GST Certificate", gstFile!),
         api.uploadVendorDocument(vendorCode, "pan", "PAN Card", panFile!),
         api.uploadVendorDocument(vendorCode, "bank", "Cancelled Cheque", chequeFile!),
-      ]);
+      ];
+      if (licenseFile) {
+        documentUploads.push(
+          api.uploadVendorDocument(vendorCode, "license", "License", licenseFile),
+        );
+      }
+      await Promise.all(documentUploads);
       await api.submitVendorKyc(vendorCode);
       update({
         ...f,
@@ -1124,7 +1131,7 @@ function Step3({
       subtitle={
         state.role === "seller"
           ? "Complete your company, warehouse, banking, and KYC details for seller approval."
-          : "All fields are required. Documents are used for one-time KYC verification."
+          : "Complete the required fields. A business license or permit is optional; documents are used for one-time KYC verification."
       }
     >
       <div className="rounded-xl border border-[color:var(--auction)]/30 bg-[color:var(--auction)]/5 p-4">
@@ -1208,7 +1215,11 @@ function Step3({
           disabled={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
           readOnly={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
         />
-        <Field label="License Number" value={f.licenseNumber} onChange={set("licenseNumber")} />
+        <Field
+          label="Business License / Permit Number (optional)"
+          value={f.licenseNumber}
+          onChange={set("licenseNumber")}
+        />
         <Field label="Contact Person Name" value={f.contactName} onChange={set("contactName")} />
         <Field
           label="Mobile Number (business)"
@@ -1321,12 +1332,7 @@ function Step3({
             onChange={(value) => onBankChange("bankIfsc", value)}
             maxLength={11}
           />
-          <Field
-            label="Bank Name (from provider)"
-            value={f.bankName}
-            onChange={() => undefined}
-            readOnly
-          />
+          <Field label="Bank Name" value={f.bankName} onChange={set("bankName")} />
           <Field
             label="Account Holder Name (from provider)"
             value={f.bankAccountHolderName}
@@ -1351,7 +1357,11 @@ function Step3({
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Upload documents
         </div>
-        <DropTile label="License" file={licenseFile} onFile={setLicenseFile} />
+        <DropTile
+          label="Business License / Permit (optional)"
+          file={licenseFile}
+          onFile={setLicenseFile}
+        />
         <DropTile label="GST Certificate" file={gstFile} onFile={setGstFile} />
         <DropTile label="PAN Card" file={panFile} onFile={setPanFile} />
         <DropTile
@@ -1551,7 +1561,7 @@ function Step4({
     ["GSTIN", state.gstNumber, 3],
     ["Entity Type", state.entityType, 3],
     ["PAN Number", state.panNumber, 3],
-    ["License Number", state.licenseNumber, 3],
+    ["Business License / Permit Number", state.licenseNumber || "—", 3],
     ["Material Interest", state.materialInterest.join(", "), 3],
     ["Contact Person", state.contactName, 3],
     ["Business Mobile", state.contactMobile, 3],

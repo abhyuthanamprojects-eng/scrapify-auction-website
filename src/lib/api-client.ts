@@ -223,6 +223,18 @@ class ScrapifyApiClient {
     return json;
   }
 
+  async getVendorDocuments(vendorCode: string) {
+    return this.request<any>(`/vendors/${vendorCode}/documents`);
+  }
+
+  async downloadVendorDocument(vendorCode: string, documentId: string | number) {
+    const response = await fetch(`${API_BASE_URL}/vendors/${vendorCode}/documents/${documentId}/download`, {
+      headers: this.token ? { Authorization: `Bearer ${this.token}` } : {},
+    });
+    if (!response.ok) throw new Error("Document download failed");
+    return response.blob();
+  }
+
   async saveRegistrationStep(data: Record<string, unknown>) {
     return this.request<any>("/vendors/save-step", {
       method: "POST",

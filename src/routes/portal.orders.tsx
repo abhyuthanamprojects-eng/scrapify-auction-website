@@ -7,6 +7,7 @@ import { loadOrders } from "@/lib/enterprise-api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/portal/orders")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "My Fulfilment Orders & Contracts — Scrapify Vendor Portal" },
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/portal/orders")({
       },
     ],
   }),
-  loader: () => loadOrders(),
+  loader: () => loadOrders().catch(() => []),
   component: VendorOrdersPage,
 });
 
