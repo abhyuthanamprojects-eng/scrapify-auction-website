@@ -226,6 +226,8 @@ function Step1({
   const [emailOtpSent, setEmailOtpSent] = useState(state.emailOtpVerified);
   const [mobileOtp, setMobileOtp] = useState("");
   const [emailOtp, setEmailOtp] = useState("");
+  const [mobileOtpLength, setMobileOtpLength] = useState(4);
+  const [emailOtpLength, setEmailOtpLength] = useState(6);
   const [mobileResendIn, setMobileResendIn] = useState(0);
   const [emailResendIn, setEmailResendIn] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -285,6 +287,7 @@ function Step1({
     try {
       const response = await api.requestOtp(mobile, "register");
       update({ mobile });
+      setMobileOtpLength(Number(response.otp_length) || 4);
       setMobileOtpSent(true);
       setMobileResendIn(response.resend_after ?? 30);
     } catch (cause) {
@@ -298,6 +301,7 @@ function Step1({
     try {
       const response = await api.requestOtp(email, "register");
       update({ email });
+      setEmailOtpLength(Number(response.otp_length) || 6);
       setEmailOtpSent(true);
       setEmailResendIn(response.resend_after ?? 30);
     } catch (cause) {
@@ -307,7 +311,7 @@ function Step1({
 
   const verifyMobile = async () => {
     setError(null);
-    if (!/^\d{6}$/.test(mobileOtp)) return setError("Enter the 6-digit mobile OTP.");
+    if (!new RegExp(`^\\d{${mobileOtpLength}}$`).test(mobileOtp)) return setError(`Enter the ${mobileOtpLength}-digit mobile OTP.`);
     try {
       await api.verifyOtp(mobile, mobileOtp, "register");
       const complete = state.emailOtpVerified;
@@ -324,7 +328,7 @@ function Step1({
 
   const verifyEmail = async () => {
     setError(null);
-    if (!/^\d{6}$/.test(emailOtp)) return setError("Enter the 6-digit email OTP.");
+    if (!new RegExp(`^\\d{${emailOtpLength}}$`).test(emailOtp)) return setError(`Enter the ${emailOtpLength}-digit email OTP.`);
     try {
       await api.verifyOtp(email, emailOtp, "register");
       const complete = state.mobileOtpVerified;
@@ -374,7 +378,7 @@ function Step1({
           )}
           {!mobileVerified && mobileOtpSent && (
             <>
-              <Field label="SMS code" type="text" value={mobileOtp} onChange={setMobileOtp} placeholder="6-digit code" maxLength={6} />
+              <Field label="SMS code" type="text" value={mobileOtp} onChange={setMobileOtp} placeholder={`${mobileOtpLength}-digit code`} maxLength={mobileOtpLength} />
               <div className="flex items-center justify-between text-xs">
                 <button type="button" className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground" disabled={mobileResendIn > 0} onClick={sendMobileOtp}>
                   {mobileResendIn > 0 ? "Resend in " + mobileResendIn + "s" : "Resend SMS"}
@@ -382,7 +386,7 @@ function Step1({
                 <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setMobileOtpSent(false)}>Change</button>
               </div>
               <div className="mt-3">
-                <PrimaryButton onClick={verifyMobile} disabled={mobileOtp.length !== 6}>Verify mobile</PrimaryButton>
+                <PrimaryButton onClick={verifyMobile} disabled={mobileOtp.length !== mobileOtpLength}>Verify mobile</PrimaryButton>
               </div>
             </>
           )}
@@ -416,7 +420,7 @@ function Step1({
           )}
           {!emailVerified && emailOtpSent && (
             <>
-              <Field label="Email code" type="text" value={emailOtp} onChange={setEmailOtp} placeholder="6-digit code" maxLength={6} />
+              <Field label="Email code" type="text" value={emailOtp} onChange={setEmailOtp} placeholder={`${emailOtpLength}-digit code`} maxLength={emailOtpLength} />
               <div className="flex items-center justify-between text-xs">
                 <button type="button" className="text-[color:var(--auction)] hover:underline disabled:text-muted-foreground" disabled={emailResendIn > 0} onClick={sendEmailOtp}>
                   {emailResendIn > 0 ? "Resend in " + emailResendIn + "s" : "Resend email"}
@@ -424,7 +428,7 @@ function Step1({
                 <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setEmailOtpSent(false)}>Change</button>
               </div>
               <div className="mt-3">
-                <PrimaryButton onClick={verifyEmail} disabled={emailOtp.length !== 6}>Verify email</PrimaryButton>
+                <PrimaryButton onClick={verifyEmail} disabled={emailOtp.length !== emailOtpLength}>Verify email</PrimaryButton>
               </div>
             </>
           )}
