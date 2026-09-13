@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   FileText,
   ShieldCheck,
@@ -39,8 +39,10 @@ export const Route = createFileRoute("/portal/documents")({
 
 interface DocumentItem {
   id: string;
+  key: string;
   name: string;
   type: string;
+  available: boolean;
   status: "verified" | "under_review" | "rejected" | "expiring_soon";
   size: string;
   expiry: string;
@@ -53,32 +55,91 @@ function VendorDocumentsPage() {
   const { user } = Route.useRouteContext();
   const [docs, setDocs] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
 
-  useEffect(() => {
+  const loadDocuments = useCallback(async (showLoading = true) => {
     const vendorCode = user?.vendor?.code || user?.vendor?.id;
     if (!vendorCode) {
       setLoading(false);
       return;
     }
-    api.getVendorDocuments(vendorCode)
-      .then((response) => {
-        const rows = Array.isArray(response?.data) ? response.data : [];
-        setDocs(rows.map((row: any) => ({
-          id: String(row.id), name: String(row.name || row.file_name || row.kind),
-          type: String(row.kind || row.key || "Document"),
-          status: row.status === "approved" ? "verified" : row.status === "rejected" ? "rejected" : "under_review",
-          size: row.size_kb ? `${row.size_kb} KB` : "—",
-          expiry: "No expiry", reason: row.reason || undefined,
-          format: String(row.file_name || "").split(".").pop()?.toUpperCase() || "FILE",
-          uploadedAt: row.uploaded_at ? new Date(row.uploaded_at).toLocaleDateString() : undefined,
-        })));
-      })
-      .catch((error) => toast.error(error instanceof Error ? error.message : "Could not load documents."))
-      .finally(() => setLoading(false));
+    if (showLoading) setLoading(true);
+    try {
+      const response = await api.getVendorDocuments(vendorCode);
+      const payload = Array.isArray(response) ? response : response?.data;
+      const rows = Array.isArray(payload) ? payload : [];
+      setDocs(rows.map((row: any) => ({
+        id: String(row.id),
+        key: String(row.key || row.doc_key || row.kind || "document"),
+        name: String(row.name || row.file_name || row.kind),
+        type: String(row.kind || row.key || "Document"),
+        available: row.available !== false,
+        status: row.status === "approved" ? "verified" : row.status === "rejected" ? "rejected" : "under_review",
+        size: row.size_kb ? `${row.size_kb} KB` : "—",
+        expiry: "No expiry", reason: row.reason || undefined,
+        format: String(row.file_name || "").split(".").pop()?.toUpperCase() || "FILE",
+        uploadedAt: row.uploaded_at ? new Date(row.uploaded_at).toLocaleDateString() : undefined,
+      })));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not load documents.");
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
+
+  useEffect(() => {
+    void loadDocuments();
+  }, [loadDocuments]);
 
   // Viewer State
   const [viewDoc, setViewDoc] = useState<DocumentItem | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewMimeType, setPreviewMimeType] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const previewRequestRef = useRef(0);
+
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  const closeViewer = () => {
+    previewRequestRef.current += 1;
+    setViewDoc(null);
+    setPreviewUrl(null);
+    setPreviewLoading(false);
+    setPreviewError(null);
+    setPreviewMimeType(null);
+  };
+
+  const handleViewDocument = async (doc: DocumentItem) => {
+    const vendorCode = user?.vendor?.code || user?.vendor?.id;
+    if (!vendorCode) {
+      toast.error("Your vendor account is not available.");
+      return;
+    }
+
+    const requestId = ++previewRequestRef.current;
+    setViewDoc(doc);
+    setPreviewUrl(null);
+    setPreviewMimeType(null);
+    setPreviewError(null);
+    setPreviewLoading(true);
+
+    try {
+      const blob = await api.downloadVendorDocument(vendorCode, doc.id);
+      if (requestId !== previewRequestRef.current) return;
+      setPreviewMimeType(blob.type || null);
+      setPreviewUrl(URL.createObjectURL(blob));
+    } catch (error) {
+      if (requestId === previewRequestRef.current) {
+        setPreviewError(error instanceof Error ? error.message : "Document preview failed.");
+      }
+    } finally {
+      if (requestId === previewRequestRef.current) setPreviewLoading(false);
+    }
+  };
 
   // Upload/Replace Modal State
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -114,9 +175,28 @@ function VendorDocumentsPage() {
     }
   };
 
-  const handleSaveDocument = (e: React.FormEvent) => {
+  const handleSaveDocument = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.error("Document upload is unavailable until the document API is connected.");
+    const vendorCode = user?.vendor?.code || user?.vendor?.id;
+    if (!vendorCode || !selectedFile) {
+      toast.error("Please select a document file first.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const docKey = replaceTarget?.key || docName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "document";
+      const kind = replaceTarget?.type || docCategory;
+      await api.uploadVendorDocument(vendorCode, docKey, kind, selectedFile);
+      await loadDocuments(false);
+      setUploadSuccess(true);
+      toast.success(replaceTarget ? `${replaceTarget.name} replaced successfully.` : "Document uploaded successfully.");
+      setIsUploadOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Document upload failed.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -169,18 +249,20 @@ function VendorDocumentsPage() {
               </td>
               <td className="py-3">
                 <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setViewDoc(d)}
-                    className="inline-flex items-center gap-1 rounded border border-border px-2.5 py-1 text-xs font-semibold hover:bg-muted"
+                  {d.available && <button
+                    onClick={() => void handleViewDocument(d)}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded border border-border px-2.5 py-1 text-xs font-semibold text-[color:var(--navy)] hover:bg-muted"
                   >
                     <Eye className="h-3.5 w-3.5" /> View
-                  </button>
-                  {(d.status === "rejected" || d.status === "expiring_soon" || d.status === "verified") && (
+                  </button>}
+                  {!d.available && <span className="rounded border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">File unavailable</span>}
+                  {(d.status === "rejected" || d.status === "expiring_soon" || d.status === "verified" || !d.available) && (
                     <button
                       onClick={() => handleOpenUpload(d)}
-                      className="inline-flex items-center gap-1 rounded bg-[color:var(--navy)] px-2.5 py-1 text-xs font-bold text-white hover:opacity-90"
+                      disabled={uploading}
+                      className="inline-flex cursor-pointer items-center gap-1 rounded bg-[color:var(--navy)] px-2.5 py-1 text-xs font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <RefreshCw className="h-3.5 w-3.5" /> Replace
+                      <RefreshCw className="h-3.5 w-3.5" /> {d.available ? "Replace" : "Upload replacement"}
                     </button>
                   )}
                 </div>
@@ -191,7 +273,7 @@ function VendorDocumentsPage() {
       </Card>
 
       {/* SECURE DOCUMENT VIEWER DIALOG */}
-      <Dialog open={!!viewDoc} onOpenChange={(open) => !open && setViewDoc(null)}>
+      <Dialog open={!!viewDoc} onOpenChange={(open) => !open && closeViewer()}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <div className="flex items-center gap-2">
@@ -207,7 +289,7 @@ function VendorDocumentsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="relative mt-2 flex min-h-[280px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-slate-50 p-6 text-center">
+          <div className="relative mt-2 flex min-h-[280px] flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-slate-50 p-4 text-center">
             {/* Watermark */}
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-10">
               <span className="rotate-[-25deg] text-3xl font-black uppercase tracking-widest text-[color:var(--navy)]">
@@ -215,13 +297,58 @@ function VendorDocumentsPage() {
               </span>
             </div>
 
-            <div className="rounded-full bg-white p-4 shadow-sm">
-              <FileCheck className="h-12 w-12 text-[color:var(--navy)]" />
+            {previewLoading ? (
+              <div className="flex flex-col items-center gap-2 py-16 text-sm font-semibold text-muted-foreground">
+                <RefreshCw className="h-7 w-7 animate-spin text-[color:var(--navy)]" />
+                Loading secure document…
+              </div>
+            ) : previewError ? (
+              <div className="flex max-w-sm flex-col items-center gap-2 py-12 text-sm font-semibold text-destructive">
+                <AlertCircle className="h-8 w-8" />
+                <span>{previewError}</span>
+                <button
+                  type="button"
+                  onClick={() => viewDoc && void handleViewDocument(viewDoc)}
+                  className="mt-2 rounded-full border border-border px-4 py-2 text-xs font-bold text-[color:var(--navy)] hover:bg-white"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : previewUrl && (previewMimeType?.startsWith("image/") || ["PNG", "JPG", "JPEG", "WEBP"].includes(viewDoc?.format || "")) ? (
+              <img
+                src={previewUrl}
+                alt={viewDoc?.name || "Uploaded document"}
+                className="max-h-[430px] w-full rounded-lg object-contain"
+              />
+            ) : previewUrl && (previewMimeType === "application/pdf" || viewDoc?.format === "PDF") ? (
+              <iframe
+                src={previewUrl}
+                title={viewDoc?.name || "Uploaded PDF"}
+                className="h-[430px] w-full rounded-lg border border-border bg-white"
+              />
+            ) : previewUrl ? (
+              <div className="flex flex-col items-center gap-3 py-16">
+                <div className="rounded-full bg-white p-4 shadow-sm">
+                  <FileCheck className="h-12 w-12 text-[color:var(--navy)]" />
+                </div>
+                <p className="text-sm font-semibold text-muted-foreground">Preview is not supported for this file type.</p>
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-border bg-white px-4 py-2 text-xs font-bold text-[color:var(--navy)] hover:bg-muted"
+                >
+                  Open secure file
+                </a>
+              </div>
+            ) : null}
+
+            <div className="pointer-events-none relative z-10 mt-3">
+              <h4 className="text-sm font-bold text-foreground">{viewDoc?.name}</h4>
+              <p className="text-xs text-muted-foreground">
+                Format: {viewDoc?.format || "PDF"} • File Size: {viewDoc?.size} • Verified Cryptographic Signature
+              </p>
             </div>
-            <h4 className="mt-3 text-sm font-bold text-foreground">{viewDoc?.name}</h4>
-            <p className="text-xs text-muted-foreground">
-              Format: {viewDoc?.format || "PDF"} • File Size: {viewDoc?.size} • Verified Cryptographic Signature
-            </p>
 
             <div className="mt-4 flex gap-2">
               <button
@@ -231,7 +358,15 @@ function VendorDocumentsPage() {
                   try {
                     const blob = await api.downloadVendorDocument(vendorCode, viewDoc.id);
                     const url = URL.createObjectURL(blob);
-                    window.open(url, "_blank", "noopener,noreferrer");
+                    const anchor = document.createElement("a");
+                    anchor.href = url;
+                    const extension = (viewDoc.format || "pdf").toLowerCase();
+                    anchor.download = viewDoc.name.toLowerCase().endsWith(`.${extension}`)
+                      ? viewDoc.name
+                      : `${viewDoc.name}.${extension}`;
+                    document.body.appendChild(anchor);
+                    anchor.click();
+                    anchor.remove();
                     setTimeout(() => URL.revokeObjectURL(url), 60_000);
                   } catch (error) {
                     toast.error(error instanceof Error ? error.message : "Document download failed.");
@@ -253,7 +388,7 @@ function VendorDocumentsPage() {
 
           <DialogFooter>
             <button
-              onClick={() => setViewDoc(null)}
+              onClick={closeViewer}
               className="rounded-full border border-border px-4 py-2 text-xs font-semibold hover:bg-muted"
             >
               Close
@@ -355,16 +490,18 @@ function VendorDocumentsPage() {
               <button
                 type="button"
                 onClick={() => setIsUploadOpen(false)}
+                disabled={uploading}
                 className="rounded-full border border-border px-4 py-2 text-xs font-semibold hover:bg-muted"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={!selectedFile && !replaceTarget}
-                className="rounded-full bg-[color:var(--navy)] px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+                disabled={!selectedFile || uploading}
+                className="inline-flex items-center gap-2 rounded-full bg-[color:var(--navy)] px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Upload & Submit
+                {uploading && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
+                {uploading ? "Uploading…" : "Upload & Submit"}
               </button>
             </DialogFooter>
           </form>

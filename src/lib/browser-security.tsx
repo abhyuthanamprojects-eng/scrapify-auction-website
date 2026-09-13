@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 export type SecurityAssessment = {
   allowed: boolean;
@@ -13,13 +13,30 @@ export function assessBrowser(): SecurityAssessment {
   const touch = navigator.maxTouchPoints || 0;
   const ipad = ua.includes("ipad") || (platform.includes("mac") && touch > 1);
   const phone = ua.includes("iphone") || ua.includes("ipod") || (ua.includes("android") && ua.includes("mobile"));
-  const browser = ua.includes("edg/") ? "Microsoft Edge" : ua.includes("firefox/") ? "Mozilla Firefox" : ua.includes("crios/") || ua.includes("chrome/") ? "Google Chrome" : ua.includes("safari/") && !ua.includes("chrome/") ? "Apple Safari" : "Unsupported browser";
+  const browser = ua.includes("edg/")
+    ? "Microsoft Edge"
+    : ua.includes("firefox/")
+      ? "Mozilla Firefox"
+      : ua.includes("crios/") || ua.includes("chrome/") || ua.includes("chromium/") || ua.includes("brave") || ua.includes("opr/") || ua.includes("opera")
+        ? "Google Chrome"
+        : ua.includes("safari/") && !ua.includes("chrome/") && !ua.includes("android")
+          ? "Apple Safari"
+          : "Unsupported browser";
   const device = phone ? "mobile-phone" : ipad || (ua.includes("android") && !ua.includes("mobile")) ? "tablet" : browser === "Unsupported browser" ? "unknown" : "desktop";
   return { allowed: browser !== "Unsupported browser" && !phone, browser, device };
 }
 
 export function SecurityGate({ children, admin = false }: { children: ReactNode; admin?: boolean }) {
-  const assessment = assessBrowser();
+  const [assessment, setAssessment] = useState<SecurityAssessment | null>(null);
+
+  useEffect(() => {
+    setAssessment(assessBrowser());
+  }, []);
+
+  // Keep the SSR and first client render identical. This prevents a refresh
+  // from briefly showing the unsupported-browser screen during hydration.
+  if (!assessment) return <>{children}</>;
+
   const blocked = !assessment.allowed || (admin && assessment.device !== "desktop" && assessment.device !== "tablet");
   if (!blocked) return <>{children}</>;
   const mobile = assessment.device === "mobile-phone" || (admin && assessment.device === "tablet");
