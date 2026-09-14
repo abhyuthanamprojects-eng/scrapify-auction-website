@@ -939,6 +939,12 @@ function Step3({
     setBankLoading(true);
     bankDebounce.current = window.setTimeout(async () => {
       try {
+        const ifscLookup = await api.lookupIfsc(ifsc).catch(() => null);
+        const ifscDetails = ifscLookup?.data ?? ifscLookup;
+        const lookupBankName = String(ifscDetails?.bank_name ?? "").trim();
+        if (lookupBankName) {
+          setF((previous) => ({ ...previous, bankName: lookupBankName }));
+        }
         const response = await api.verifyBank({
           bank_account: account,
           bank_account_confirmation: account,
@@ -951,7 +957,7 @@ function Step3({
         if (details?.bank_verification_status !== "BANK_VERIFIED") {
           throw new Error(details?.last_error_code || "This bank account could not be verified.");
         }
-        const bankName = String(details.bank_name ?? "").trim();
+        const bankName = String(details.bank_name ?? lookupBankName).trim();
         const bankAccountHolderName = String(details.bank_account_holder_name ?? "").trim();
         setF((previous) => ({ ...previous, bankName, bankAccountHolderName }));
         setBankLookup(details);
@@ -1354,7 +1360,7 @@ function Step3({
             onChange={(value) => onBankChange("bankIfsc", value)}
             maxLength={11}
           />
-          <Field label="Bank Name" value={f.bankName} onChange={set("bankName")} />
+          <Field label="Bank Name (from IFSC)" value={f.bankName} onChange={() => undefined} readOnly />
           <Field
             label="Account Holder Name (from provider)"
             value={f.bankAccountHolderName}
@@ -1369,7 +1375,7 @@ function Step3({
           <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700">
             Bank account verified via {bankLookup.bank_provider || "Sandbox"}.
             {bankHolderName ? ` Account holder: ${bankHolderName}.` : ""}
-            {!f.bankName ? " The provider did not return a bank name." : ""}
+            {!f.bankName ? " Bank name could not be resolved from this IFSC." : ""}
           </div>
         )}
         {bankError && <ErrorLine>{bankError}</ErrorLine>}

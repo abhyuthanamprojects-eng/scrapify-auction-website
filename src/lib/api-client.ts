@@ -287,6 +287,9 @@ class ScrapifyApiClient {
   }) {
     return this.request<any>("/kyb/bank/verify", { method: "POST", body: JSON.stringify(data) });
   }
+  async lookupIfsc(ifsc: string) {
+    return this.request<any>(`/kyb/bank/ifsc/${encodeURIComponent(ifsc)}`);
+  }
   async requestBusinessReverification() {
     return this.request<any>("/kyb/reverify", { method: "POST" });
   }
