@@ -18,8 +18,26 @@ export interface AuthState {
   primaryRole: AppRole | null;
 }
 
+const AUTH_USER_STORAGE_KEY = "scrapify_authenticated_user";
+
+function readCachedUser(): AppUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = window.localStorage.getItem(AUTH_USER_STORAGE_KEY);
+    return value ? (JSON.parse(value) as AppUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheUser(user: AppUser | null) {
+  if (typeof window === "undefined") return;
+  if (user) window.localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+  else window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+}
+
 export function useAuth(): AuthState {
-  const [user, setUser] = useState<AppUser | null>(null);
+  const [user, setUser] = useState<AppUser | null>(() => readCachedUser());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,6 +45,7 @@ export function useAuth(): AuthState {
     const load = async () => {
       if (!api.getToken()) {
         if (active) {
+          cacheUser(null);
           setUser(null);
           setLoading(false);
         }
@@ -35,10 +54,22 @@ export function useAuth(): AuthState {
       try {
         const response = await api.me();
         const next = (response.user ?? response.data?.user ?? null) as AppUser | null;
-        if (active) setUser(next);
+        if (active) {
+          setUser(next);
+          cacheUser(next);
+        }
       } catch {
-        api.setToken(null);
-        if (active) setUser(null);
+        // api.request already clears the token and emits the auth event for a
+        // real 401. Keep the last verified identity for transient refresh or
+        // network failures so protected pages do not render anonymous header
+        // actions while their data is still on screen.
+        if (active) {
+          if (api.getToken()) setUser((current) => current ?? readCachedUser());
+          else {
+            cacheUser(null);
+            setUser(null);
+          }
+        }
       } finally {
         if (active) setLoading(false);
       }
