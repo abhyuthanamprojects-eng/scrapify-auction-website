@@ -13,7 +13,7 @@ import {
   Search,
   RefreshCw,
 } from "lucide-react";
-import { Card, PageHead, Pill, Table } from "@/components/console/shell";
+import { Card, PageHead, Pill } from "@/components/console/shell";
 import {
   Dialog,
   DialogContent,
@@ -142,7 +142,7 @@ function VendorTeamPage() {
     <div className="space-y-6">
       <PageHead
         title="Team & Authorized Bidders"
-        description="Manage corporate team members, delegate bidding authority, and enforce maximum limit controls."
+        subtitle="Manage corporate team members, delegate bidding authority, and enforce maximum limit controls."
         actions={
           <button
             onClick={() => setIsModalOpen(true)}
@@ -200,7 +200,7 @@ function VendorTeamPage() {
 
       {/* Members Table */}
       <Card className="overflow-hidden">
-        <Table>
+        <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30 text-left text-xs font-bold text-muted-foreground">
               <th className="px-4 py-3">Member Details</th>
@@ -250,7 +250,7 @@ function VendorTeamPage() {
                       {m.max_bidding_limit ? `₹${Number(m.max_bidding_limit).toLocaleString("en-IN")}` : "—"}
                     </td>
                     <td className="px-4 py-3.5">
-                      <Pill variant={isActive ? "success" : "muted"}>
+                      <Pill tone={isActive ? "good" : "muted"}>
                         {isActive ? "Active / Authorized" : "Suspended"}
                       </Pill>
                     </td>
@@ -271,7 +271,7 @@ function VendorTeamPage() {
               })
             )}
           </tbody>
-        </Table>
+        </table>
       </Card>
 
       {/* Add Member Modal */}
