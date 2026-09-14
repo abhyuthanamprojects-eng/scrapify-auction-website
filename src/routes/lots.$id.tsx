@@ -106,7 +106,7 @@ function LotDetail() {
   const part = flow.participation[lot.id];
   const emdStatus = part?.emd ?? "not_paid";
   const emdOk = emdStatus === "confirmed";
-  const canBid = approved && emdOk && lot.status === "live";
+  const canBid = approved && lot.isRegistered && emdOk && lot.status === "live";
   const watching = flow.watch.includes(lot.id);
   const [emdRef, setEmdRef] = useState("");
   const fmt = (ms: number) =>
@@ -382,13 +382,15 @@ function LotDetail() {
                   title={
                     !approved
                       ? "Complete registration and KYC approval to bid"
+                      : !lot.isRegistered
+                        ? lot.registrationOpen ? "Register before the auction starts to participate" : "Registration has closed; this auction is view-only"
                       : !emdOk
                         ? "Pay and get EMD confirmed to bid"
                         : "Auction is not live"
                   }
                   className="mt-4 w-full cursor-not-allowed rounded-full bg-[color:var(--auction)] px-6 py-3.5 font-display text-base font-bold text-white opacity-50"
                 >
-                  Bidding locked
+                  {!lot.isRegistered && !lot.registrationOpen ? "Registration closed" : "Bidding locked"}
                 </button>
               )}
 
@@ -399,6 +401,12 @@ function LotDetail() {
                 >
                   {pending ? "Verification pending — view status" : "Register to unlock bidding"}
                 </Link>
+              )}
+
+              {approved && !lot.isRegistered && (
+                <p className="mt-2 text-center text-xs font-semibold text-muted-foreground">
+                  {lot.registrationOpen ? "Complete the EMD/terms registration before the auction starts." : "Registration has ended. You can view auction details only."}
+                </p>
               )}
 
               {/* EMD participation */}
@@ -416,13 +424,19 @@ function LotDetail() {
                   base) refundable deposit. Auto-released if you do not win.
                 </p>
 
-                {approved && emdStatus === "not_paid" && !part && (
+                {approved && lot.registrationOpen && emdStatus === "not_paid" && !part && (
                   <button
                     onClick={() => registerForAuction(lot)}
                     className="mt-3 w-full rounded-full bg-[color:var(--navy)] py-2.5 text-sm font-bold text-white"
                   >
                     Register for this auction
                   </button>
+                )}
+
+                {approved && !lot.registrationOpen && !lot.isRegistered && (
+                  <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                    Registration ended. New participants cannot join this auction.
+                  </p>
                 )}
 
                 {approved && part && emdStatus === "not_paid" && (

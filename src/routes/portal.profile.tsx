@@ -33,12 +33,12 @@ function ProfilePage() {
   const { user } = Route.useRouteContext();
   const vendor = user?.vendor;
   const org = user?.organization;
-  const companyAddress =
-    vendor?.address ||
-    vendor?.address_line1 ||
-    [vendor?.city, vendor?.state, vendor?.pincode].filter(Boolean).join(", ");
-  const companyLocation =
-    vendor?.location || [vendor?.city, vendor?.state].filter(Boolean).join(", ");
+  const locality = [vendor?.city, vendor?.state].filter(Boolean).join(", ");
+  const localityWithPincode = [locality, vendor?.pincode].filter(Boolean).join(" - ");
+  const companyAddress = [vendor?.address || vendor?.address_line1, localityWithPincode]
+    .filter(Boolean)
+    .join(", ");
+  const companyLocation = vendor?.location || localityWithPincode || vendor?.address || vendor?.address_line1;
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
