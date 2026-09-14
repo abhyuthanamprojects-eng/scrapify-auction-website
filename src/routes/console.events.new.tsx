@@ -83,11 +83,11 @@ function CreateEventWizard() {
   const [direction, setDirection] = useState<EventDirection>("forward");
   const [format, setFormat] = useState<EventFormat>("english");
   // Step 3: Ownership & Category
-  const [title, setTitle] = useState("Industrial Copper Scrap & Armoured Cables (28 MT)");
+  const [title, setTitle] = useState("");
   const [category, setCategory] = useState<string>("");
-  const [bu, setBu] = useState("Corporate Disposals");
+  const [bu, setBu] = useState("");
   const [plant, setPlant] = useState("");
-  const [facility, setFacility] = useState("Plot 48, MIDC Industrial Area, Mumbai");
+  const [facility, setFacility] = useState("");
   const [warehouseName, setWarehouseName] = useState("");
   const [warehouseAddress, setWarehouseAddress] = useState("");
   const [warehouseCity, setWarehouseCity] = useState("");
@@ -96,13 +96,7 @@ function CreateEventWizard() {
   const [warehouseContact, setWarehouseContact] = useState("");
   // Step 4: Lots
   const [lines, setLines] = useState<Line[]>([
-    {
-      description: "Bare bright copper wire scrap",
-      quantity: "28",
-      unit: "MT",
-      startPrice: "1450000",
-      attributes: {},
-    },
+    { description: "", quantity: "", unit: "MT", startPrice: "", attributes: {} },
   ]);
   // Step 4: Template import
   const [templateInfo, setTemplateInfo] = useState<any>(null);
@@ -116,20 +110,17 @@ function CreateEventWizard() {
   const templateFileRef = useRef<HTMLInputElement>(null);
 
   // Step 5: Documents
-  const [docs, setDocs] = useState([
-    "Full Technical Specification.pdf",
-    "General Auction Terms.pdf",
-  ]);
+  const [docs, setDocs] = useState<string[]>([]);
   // Step 6: RFx
   const [enableRfx, setEnableRfx] = useState(true);
   // Step 7: Participants
   const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
   // Step 8: Commercials
-  const [baseline, setBaseline] = useState("1650000");
-  const [increment, setIncrement] = useState("10000");
-  const [emdRequired, setEmdRequired] = useState(true);
-  const [emdAmount, setEmdAmount] = useState("50000");
-  const [startingPrice, setStartingPrice] = useState("1650000");
+  const [baseline, setBaseline] = useState("");
+  const [increment, setIncrement] = useState("");
+  const [emdRequired, setEmdRequired] = useState(false);
+  const [emdAmount, setEmdAmount] = useState("");
+  const [startingPrice, setStartingPrice] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [liftingPeriod, setLiftingPeriod] = useState("7");
   const [liftingUnit, setLiftingUnit] = useState("Days");
@@ -256,6 +247,54 @@ function CreateEventWizard() {
   );
 
   const allValid = checks.every((c) => c.ok);
+  const [stepError, setStepError] = useState<string | null>(null);
+
+  const validateStep = (s: number): string | null => {
+    switch (s) {
+      case 0:
+        if (!purpose) return "Please select a purpose.";
+        return null;
+      case 1:
+        return null;
+      case 2:
+        if (!title.trim()) return "Please enter an auction title.";
+        if (!category) return "Please select a category.";
+        if (!bu.trim()) return "Please enter a company / business unit.";
+        return null;
+      case 3: {
+        const willUpload = !!(templateFile && templateInfo?.id && !templateConfirmed);
+        if (!willUpload && !lines.some((l) => l.description.trim() && Number(l.quantity) > 0))
+          return "Add at least one lot with a description and quantity, or upload a template.";
+        return null;
+      }
+      case 7:
+        if (!Number(baseline)) return "Please set a reserve / target baseline price.";
+        if (!Number(increment)) return "Please set a bid increment.";
+        return null;
+      case 8: {
+        const s1 = new Date(startTime);
+        const e1 = new Date(endTime);
+        if (Number.isNaN(s1.getTime()) || Number.isNaN(e1.getTime())) return "Please set valid start and end times.";
+        if (e1 <= s1) return "End time must be after start time.";
+        if (s1.getTime() < Date.now()) return "Start time cannot be in the past.";
+        if (!Number(initialSlotMins) || !Number(continuationSlotMins)) return "Slot durations must be greater than zero.";
+        if (!Number(maximumDurationMins)) return "Please set the maximum auction duration.";
+        return null;
+      }
+      default:
+        return null;
+    }
+  };
+
+  const handleContinue = () => {
+    const err = validateStep(step);
+    if (err) {
+      setStepError(err);
+      return;
+    }
+    setStepError(null);
+    setStep(step + 1);
+  };
 
   const handlePublish = async () => {
     if (publishing || !allValid) return;
@@ -1262,11 +1301,11 @@ function CreateEventWizard() {
       </div>
 
       {/* Wizard Action Footer */}
-      <div className="flex items-center justify-between border-t border-border pt-4">
+      <div className="relative flex items-center justify-between border-t border-border pt-4">
         {step > 0 ? (
           <button
             type="button"
-            onClick={() => setStep(step - 1)}
+            onClick={() => { setStepError(null); setStep(step - 1); }}
             className="inline-flex items-center gap-1 rounded-full border border-border px-5 py-2.5 text-sm font-semibold hover:bg-muted"
           >
             <ChevronLeft className="h-4 w-4" /> Back
@@ -1275,10 +1314,15 @@ function CreateEventWizard() {
           <div />
         )}
 
+        {stepError && (
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700 shadow-sm">
+            {stepError}
+          </div>
+        )}
         {step < 11 ? (
           <button
             type="button"
-            onClick={() => setStep(step + 1)}
+            onClick={handleContinue}
             className="inline-flex items-center gap-1 rounded-full bg-[color:var(--navy)] px-6 py-2.5 text-sm font-semibold text-white hover:brightness-110"
           >
             Continue <ChevronRight className="h-4 w-4" />
