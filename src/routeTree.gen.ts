@@ -15,6 +15,7 @@ import { Route as AccessDeniedRouteImport } from './routes/access-denied'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ConsoleRouteImport } from './routes/console'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as MyBidsRouteImport } from './routes/my-bids'
 import { Route as PortalRouteImport } from './routes/portal'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RegisterRouteImport } from './routes/register'
@@ -75,6 +76,11 @@ const ConsoleRoute = ConsoleRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyBidsRoute = MyBidsRouteImport.update({
+  id: '/my-bids',
+  path: '/my-bids',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PortalRoute = PortalRouteImport.update({
@@ -246,6 +252,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/console': typeof ConsoleRouteWithChildren
   '/contact': typeof ContactRoute
+  '/my-bids': typeof MyBidsRoute
   '/portal': typeof PortalRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
@@ -284,6 +291,7 @@ export interface FileRoutesByTo {
   '/access-denied': typeof AccessDeniedRoute
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
+  '/my-bids': typeof MyBidsRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/terms': typeof TermsRoute
@@ -324,6 +332,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/console': typeof ConsoleRouteWithChildren
   '/contact': typeof ContactRoute
+  '/my-bids': typeof MyBidsRoute
   '/portal': typeof PortalRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
@@ -365,6 +374,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/console'
     | '/contact'
+    | '/my-bids'
     | '/portal'
     | '/privacy'
     | '/register'
@@ -403,6 +413,7 @@ export interface FileRouteTypes {
     | '/access-denied'
     | '/auth'
     | '/contact'
+    | '/my-bids'
     | '/privacy'
     | '/register'
     | '/terms'
@@ -442,6 +453,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/console'
     | '/contact'
+    | '/my-bids'
     | '/portal'
     | '/privacy'
     | '/register'
@@ -483,6 +495,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ConsoleRoute: typeof ConsoleRouteWithChildren
   ContactRoute: typeof ContactRoute
+  MyBidsRoute: typeof MyBidsRoute
   PortalRoute: typeof PortalRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
@@ -535,6 +548,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-bids': {
+      id: '/my-bids'
+      path: '/my-bids'
+      fullPath: '/my-bids'
+      preLoaderRoute: typeof MyBidsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/portal': {
@@ -847,6 +867,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ConsoleRoute: ConsoleRouteWithChildren,
   ContactRoute: ContactRoute,
+  MyBidsRoute: MyBidsRoute,
   PortalRoute: PortalRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
