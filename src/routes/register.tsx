@@ -21,8 +21,10 @@ import { getFirebaseAuth } from "@/lib/firebase";
 import type { RegistrationState, WizardStep } from "@/lib/registration-store";
 import { clearRegistration, MATERIALS } from "@/lib/registration-store";
 import { api } from "@/lib/api-client";
+import { redirectIfAuthenticated } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/register")({
+  beforeLoad: () => redirectIfAuthenticated(),
   head: () => ({
     meta: [
       { title: "Enterprise Vendor & Buyer Registration — Scrapify Auctions" },

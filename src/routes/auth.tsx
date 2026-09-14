@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { Gavel } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { redirectIfAuthenticated } from "@/lib/route-guards";
 
 const searchSchema = z.object({
   mode: z.enum(["signin", "signup"]).optional(),
@@ -11,6 +12,7 @@ const searchSchema = z.object({
 });
 
 export const Route = createFileRoute("/auth")({
+  beforeLoad: () => redirectIfAuthenticated(),
   validateSearch: (s) => searchSchema.parse(s),
   head: () => ({
     meta: [

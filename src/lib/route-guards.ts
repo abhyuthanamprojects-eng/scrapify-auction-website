@@ -38,3 +38,20 @@ export async function requireRole(location: { href: string }, allowed: string[])
     throw redirect({ to: "/auth", search: { mode: "signin", redirect: location.href } });
   }
 }
+
+/** Keep authenticated users out of public sign-in and registration screens. */
+export async function redirectIfAuthenticated(workspace: string = "/portal") {
+  if (!api.getToken()) return;
+
+  try {
+    const user = userFromResponse(await api.me());
+    if (!user) return;
+    const role = rolesFor(user);
+    const target = role.includes("seller") ? "/console" : workspace;
+    throw redirect({ to: target as "/portal" | "/console" });
+  } catch (error) {
+    // A real 401 is already handled by api.request. Network failures should
+    // leave the public screen usable until the session can be checked again.
+    if (error && typeof error === "object" && "routerCode" in error) throw error;
+  }
+}
