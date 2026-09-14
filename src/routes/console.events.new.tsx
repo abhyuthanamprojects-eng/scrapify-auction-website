@@ -108,7 +108,7 @@ function CreateEventWizard() {
   const [templateInfo, setTemplateInfo] = useState<any>(null);
   const [templateLoading, setTemplateLoading] = useState(false);
   const [templateFile, setTemplateFile] = useState<File | null>(null);
-  const [templateUploading, setTemplateUploading] = useState(false);
+
   const [templateUploadResult, setTemplateUploadResult] = useState<any>(null);
   const [templateConfirming, setTemplateConfirming] = useState(false);
   const [templateConfirmed, setTemplateConfirmed] = useState(false);
@@ -189,6 +189,9 @@ function CreateEventWizard() {
     setTemplateFile(null);
     setTemplateUploadResult(null);
     setTemplateConfirmed(false);
+    if (templateImportedLots.length > 0) {
+      setLines([{ description: "", quantity: "", unit: "MT", startPrice: "", attributes: {} }]);
+    }
     setTemplateImportedLots([]);
     api
       .getTemplateForCategory(selectedCategoryId)
@@ -205,26 +208,6 @@ function CreateEventWizard() {
       cancelled = true;
     };
   }, [selectedCategoryId]);
-
-  const handleTemplateUpload = useCallback(
-    async (file: File, auctionCode: string) => {
-      if (!templateInfo?.id) return;
-      setTemplateUploading(true);
-      setTemplateUploadResult(null);
-      try {
-        const result = await api.uploadAuctionTemplate(auctionCode, templateInfo.id, file);
-        setTemplateUploadResult(result);
-      } catch (err) {
-        setTemplateUploadResult({
-          success: false,
-          message: err instanceof Error ? err.message : "Upload failed",
-        });
-      } finally {
-        setTemplateUploading(false);
-      }
-    },
-    [templateInfo],
-  );
 
   const handleTemplateConfirm = useCallback(
     async (auctionCode: string, uploadId: number | string) => {
@@ -294,10 +277,11 @@ function CreateEventWizard() {
       if (Number(initialSlotMins) < 1 || Number(continuationSlotMins) < 1) {
         throw new Error("Slot durations must be greater than zero.");
       }
-      if (!lines.some((line) => line.description.trim() && Number(line.quantity) > 0)) {
+      const willUploadTemplate = !!(templateFile && templateInfo?.id && !templateConfirmed);
+      if (!willUploadTemplate && !lines.some((line) => line.description.trim() && Number(line.quantity) > 0)) {
         throw new Error("Add at least one lot with an item name and quantity.");
       }
-      const response = await api.createAuction({
+      const auctionPayload: Record<string, any> = {
         title: title.trim(),
         description: lines.map((line) => line.description.trim()).filter(Boolean).join("; "),
         company: bu,
@@ -335,22 +319,27 @@ function CreateEventWizard() {
         contact_phone: contactPhone || undefined,
         contact_email: contactEmail || undefined,
         status: "draft",
-        sub_lots: lines.map((line) => ({
+      };
+      if (!willUploadTemplate) {
+        auctionPayload.sub_lots = lines.map((line) => ({
           name: line.description,
           quantity: line.quantity,
           uom: line.unit || "Nos.",
           reserve_price: Number(line.startPrice || baseline),
-        })),
-      });
+        }));
+      }
+      const response = await api.createAuction(auctionPayload);
       const code = response?.data?.code ?? response?.code;
       if (!code) throw new Error("The API did not return the created event code.");
 
       // Upload template file if one was selected but not yet uploaded
       if (templateFile && templateInfo?.id && !templateConfirmed) {
         const uploadResult = await api.uploadAuctionTemplate(code, templateInfo.id, templateFile);
-        if (uploadResult?.success && uploadResult?.data?.upload_id) {
-          await api.confirmTemplateImport(code, uploadResult.data.upload_id);
-        } else if (!uploadResult?.success) {
+        const uploadData = uploadResult?.data ?? uploadResult;
+        const uploadId = uploadData?.upload?.id ?? uploadData?.upload_id;
+        if (uploadData?.valid && uploadId) {
+          await api.confirmTemplateImport(code, uploadId);
+        } else if (!uploadData?.valid) {
           setTemplateUploadResult(uploadResult);
           throw new Error(
             uploadResult?.message || "Template validation failed. Fix errors and try again.",
@@ -623,6 +612,13 @@ function CreateEventWizard() {
                 </div>
               )}
 
+              {!templateLoading && selectedCategoryId && !templateInfo?.id && !templateConfirmed && (
+                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-4 text-xs text-amber-700 dark:text-amber-300">
+                  <Info className="h-4 w-4 shrink-0" />
+                  <span>No official template is available for <strong>{category}</strong>. You can add lots manually below.</span>
+                </div>
+              )}
+
               {templateInfo?.id && !templateConfirmed && (
                 <div className="rounded-xl border border-[color:var(--navy)]/30 bg-[color:var(--navy)]/5 p-5 space-y-4">
                   <div className="flex items-start justify-between gap-3">
@@ -719,65 +715,114 @@ function CreateEventWizard() {
                   )}
 
                   {/* Validation errors display */}
-                  {templateUploadResult && !templateUploadResult.success && (
+                  {templateUploadResult && !(templateUploadResult?.data?.valid ?? templateUploadResult?.valid) && (
                     <TemplateErrors result={templateUploadResult} templateInfo={templateInfo} />
                   )}
 
                   {/* Upload success with preview */}
-                  {templateUploadResult?.success && templateUploadResult?.data?.rows && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-xs font-bold text-[color:var(--success)]">
-                        <CheckCircle2 className="h-4 w-4" />
-                        Template validated — {templateUploadResult.data.rows.length} lot(s) parsed
-                      </div>
-                      <div className="max-h-60 overflow-auto rounded-lg border border-border">
-                        <table className="w-full text-xs">
-                          <thead className="bg-muted/60 sticky top-0">
-                            <tr>
-                              <th className="p-2 text-left font-semibold">#</th>
-                              <th className="p-2 text-left font-semibold">Description</th>
-                              <th className="p-2 text-right font-semibold">Qty</th>
-                              <th className="p-2 text-left font-semibold">UOM</th>
-                              <th className="p-2 text-right font-semibold">Price</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {templateUploadResult.data.rows.map((row: any, i: number) => (
-                              <tr key={i} className="border-t border-border">
-                                <td className="p-2 font-mono text-muted-foreground">{i + 1}</td>
-                                <td className="p-2">{row.description ?? row.name ?? "—"}</td>
-                                <td className="p-2 text-right font-mono">{row.quantity ?? "—"}</td>
-                                <td className="p-2">{row.unit ?? row.uom ?? "—"}</td>
-                                <td className="p-2 text-right font-mono">
-                                  {row.start_price ?? row.reserve_price ?? row.price ?? "—"}
-                                </td>
+                  {(() => {
+                    const uploadData = templateUploadResult?.data ?? templateUploadResult;
+                    const isValid = uploadData?.valid === true;
+                    const parsedRows: any[] = uploadData?.rows ?? [];
+                    const uploadId = uploadData?.upload?.id ?? uploadData?.upload_id;
+                    if (!isValid || parsedRows.length === 0) return null;
+
+                    const rowCount = uploadData.row_count ?? parsedRows.length;
+                    const totalQty = uploadData.total_quantity ?? 0;
+                    const totalRefValue = uploadData.total_reference_value ?? 0;
+
+                    return (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-xs font-bold text-[color:var(--success)]">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Template validated — {rowCount} item(s) parsed
+                        </div>
+
+                        {/* Summary stats */}
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
+                            <div className="text-lg font-bold text-[color:var(--navy)]">{rowCount}</div>
+                            <div className="text-[10px] uppercase text-muted-foreground font-semibold">Items</div>
+                          </div>
+                          <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
+                            <div className="text-lg font-bold text-[color:var(--navy)]">{Number(totalQty).toLocaleString("en-IN")}</div>
+                            <div className="text-[10px] uppercase text-muted-foreground font-semibold">Total Qty</div>
+                          </div>
+                          <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
+                            <div className="text-lg font-bold text-[color:var(--navy)]">{inr(Number(totalRefValue))}</div>
+                            <div className="text-[10px] uppercase text-muted-foreground font-semibold">Total Ref. Value</div>
+                          </div>
+                        </div>
+
+                        {/* Dynamic data table from extracted Excel rows */}
+                        <div className="max-h-72 overflow-auto rounded-lg border border-border">
+                          <table className="w-full text-xs">
+                            <thead className="bg-muted/60 sticky top-0">
+                              <tr>
+                                <th className="p-2 text-left font-semibold">#</th>
+                                <th className="p-2 text-left font-semibold">Item Name</th>
+                                <th className="p-2 text-right font-semibold">Qty</th>
+                                <th className="p-2 text-left font-semibold">UOM</th>
+                                <th className="p-2 text-right font-semibold">Ref. Value</th>
+                                <th className="p-2 text-right font-semibold">Line Total</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {parsedRows.map((row: any, i: number) => {
+                                const d = row.data ?? row;
+                                const qty = Number(String(d.quantity ?? "1").replace(/[,₹$ ]/g, "")) || 0;
+                                const refVal = Number(String(d.reference_value ?? d.reserve_value ?? "0").replace(/[,₹$ ]/g, "")) || 0;
+                                const lineTotal = qty * refVal;
+                                return (
+                                  <tr key={i} className="border-t border-border">
+                                    <td className="p-2 font-mono text-muted-foreground">{row.row_number ?? i + 1}</td>
+                                    <td className="p-2 font-semibold">
+                                      {d.item_name ?? d.product_name ?? d.description ?? d.name ?? "—"}
+                                      {d.brand && <span className="ml-1 text-muted-foreground font-normal">({d.brand})</span>}
+                                    </td>
+                                    <td className="p-2 text-right font-mono">{qty || "—"}</td>
+                                    <td className="p-2 text-muted-foreground">{d.unit ?? d.uom ?? "PCS"}</td>
+                                    <td className="p-2 text-right font-mono">{refVal > 0 ? inr(refVal) : "—"}</td>
+                                    <td className="p-2 text-right font-mono font-semibold">{lineTotal > 0 ? inr(lineTotal) : "—"}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot className="bg-muted/40 border-t-2 border-border font-semibold">
+                              <tr>
+                                <td className="p-2" colSpan={2}>Total</td>
+                                <td className="p-2 text-right font-mono">{Number(totalQty).toLocaleString("en-IN")}</td>
+                                <td className="p-2" />
+                                <td className="p-2" />
+                                <td className="p-2 text-right font-mono text-[color:var(--navy)]">{inr(Number(totalRefValue))}</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+
+                        {!templateConfirmed && uploadId && (
+                          <button
+                            type="button"
+                            disabled={templateConfirming}
+                            onClick={() =>
+                              handleTemplateConfirm(
+                                uploadData.upload?.auction_code ?? "",
+                                uploadId,
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--success)] px-5 py-2 text-xs font-bold text-white hover:brightness-110 disabled:opacity-50"
+                          >
+                            {templateConfirming ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Check className="h-3.5 w-3.5" />
+                            )}
+                            Confirm Import
+                          </button>
+                        )}
                       </div>
-                      {!templateConfirmed && templateUploadResult.data?.upload_id && (
-                        <button
-                          type="button"
-                          disabled={templateConfirming}
-                          onClick={() =>
-                            handleTemplateConfirm(
-                              templateUploadResult.data.auction_code,
-                              templateUploadResult.data.upload_id,
-                            )
-                          }
-                          className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--success)] px-5 py-2 text-xs font-bold text-white hover:brightness-110 disabled:opacity-50"
-                        >
-                          {templateConfirming ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Check className="h-3.5 w-3.5" />
-                          )}
-                          Confirm Import
-                        </button>
-                      )}
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               )}
 
@@ -1261,8 +1306,8 @@ function TemplateErrors({
   templateInfo: any;
 }) {
   const errors: any[] = result?.data?.errors ?? result?.errors ?? [];
-  const isWrongTemplate = result?.error?.code === "WRONG_TEMPLATE" || result?.code === "WRONG_TEMPLATE";
-  const isOldVersion = result?.error?.code === "OLD_VERSION" || result?.code === "OLD_VERSION";
+  const isWrongTemplate = result?.error?.code === "WRONG_TEMPLATE" || result?.code === "WRONG_TEMPLATE" || errors.some((e: any) => e.type === "WRONG_TEMPLATE");
+  const isOldVersion = result?.error?.code === "OLD_VERSION" || result?.code === "OLD_VERSION" || errors.some((e: any) => e.type === "TEMPLATE_VERSION_UNSUPPORTED");
 
   const copyErrors = () => {
     const text = errors
