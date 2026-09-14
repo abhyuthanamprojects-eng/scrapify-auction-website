@@ -49,6 +49,7 @@ function AuthPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loginMethod, setLoginMethod] = useState<"email" | "mobile">("email");
+  const [loginMode, setLoginMode] = useState<"otp" | "password">("otp");
   const [otpStep, setOtpStep] = useState(false);
   const [otp, setOtp] = useState("");
   const [otpDestination, setOtpDestination] = useState("");
@@ -130,6 +131,32 @@ function AuthPage() {
         navigate({ to: target(search.redirect ?? null, workspace) });
       } catch (err) { setError(err instanceof Error ? err.message : "OTP verification failed."); }
       finally { setBusy(false); }
+      return;
+    }
+    if (mode === "signin" && loginMode === "password") {
+      const identifier = loginMethod === "email" ? email.trim() : phone.trim();
+      if (loginMethod === "email" ? !isEmail(identifier) : !isIndianMobile(identifier)) {
+        setError(loginMethod === "email" ? "Enter a valid email address." : "Enter a valid Indian mobile number.");
+        return;
+      }
+      if (!password) { setError("Enter your password."); return; }
+      setBusy(true);
+      try {
+        const response = await api.login(identifier, password, role);
+        const workspace = workspaceFor(response.user ?? response.data?.user ?? response.data);
+        if (!workspace) { api.setToken(null); throw new Error("This account must sign in through the Admin Portal."); }
+        window.dispatchEvent(new CustomEvent("scrapify:auth"));
+        navigate({ to: target(search.redirect ?? null, workspace) });
+      } catch (err) {
+        const code = (err as { code?: string })?.code;
+        setError(
+          code === "ROLE_CONTEXT_MISMATCH"
+            ? `This account is registered as a ${role === "buyer" ? "Seller" : "Buyer"}. Please use ${role === "buyer" ? "Seller" : "Buyer"} Login.`
+            : code === "ADMIN_LOGIN_NOT_ALLOWED_HERE"
+              ? "This is an internal account. Use the separate Admin Portal to sign in."
+              : err instanceof Error ? err.message : "Login failed.",
+        );
+      } finally { setBusy(false); }
       return;
     }
     if (mode === "signin") {
@@ -254,12 +281,23 @@ function AuthPage() {
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-2">
+                  {(["otp", "password"] as const).map((lm) => (
+                    <button key={lm} type="button" onClick={() => { setLoginMode(lm); setError(null); setOtpStep(false); setOtp(""); }} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${loginMode === lm ? "border-[color:var(--auction)] bg-[color:var(--auction)]/10" : "border-white/10"}`}>
+                      {lm === "otp" ? "Login with OTP" : "Login with Password"}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
                   {(["email", "mobile"] as const).map((method) => (
                     <button key={method} type="button" onClick={() => setLoginMethod(method)} className={`rounded-lg border px-3 py-2 text-sm font-semibold capitalize ${loginMethod === method ? "border-[color:var(--auction)] bg-[color:var(--auction)]/10" : "border-white/10"}`}>{method}</button>
                   ))}
                 </div>
                 <Field label={loginMethod === "email" ? "Email" : "Mobile"} type={loginMethod === "email" ? "email" : "tel"} value={loginMethod === "email" ? email : phone} onChange={loginMethod === "email" ? setEmail : setPhone} required maxLength={loginMethod === "email" ? 254 : 13} inputMode={loginMethod === "email" ? "email" : "tel"} />
-                <p className="text-xs text-white/50">We’ll send a one-time code to the selected email or mobile number.</p>
+                {loginMode === "password" ? (
+                  <Field label="Password" type="password" value={password} onChange={setPassword} required />
+                ) : (
+                  <p className="text-xs text-white/50">We’ll send a one-time code to the selected email or mobile number.</p>
+                )}
               </>
             )}
             {error && (
@@ -273,7 +311,7 @@ function AuthPage() {
               disabled={busy}
               className="w-full rounded-full bg-[color:var(--auction)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(249,115,22,0.7)] transition-colors hover:brightness-110 disabled:opacity-60"
             >
-              {busy ? "Please wait…" : mode === "signin" ? (otpStep ? "Verify OTP" : "Send OTP") : `Create ${role} account`}
+              {busy ? "Please wait…" : mode === "signin" ? (otpStep ? "Verify OTP" : loginMode === "password" ? "Sign In" : "Send OTP") : `Create ${role} account`}
             </button>
           </form>
 

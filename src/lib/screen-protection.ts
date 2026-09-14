@@ -1,8 +1,16 @@
 export function initScreenProtection() {
   if (typeof window === "undefined") return;
 
-  // Disable right-click context menu
-  document.addEventListener("contextmenu", (e) => e.preventDefault());
+  // Keep the protection overlay/context menu disabled for page content, but
+  // preserve the native context menu on form controls so users can copy and
+  // paste identifiers, OTPs, and registration details.
+  document.addEventListener("contextmenu", (e) => {
+    const target = e.target;
+    if (target instanceof Element && target.closest('input, textarea, [contenteditable="true"]')) {
+      return;
+    }
+    e.preventDefault();
+  });
 
   // Disable common screenshot/copy keyboard shortcuts
   document.addEventListener("keydown", (e) => {
