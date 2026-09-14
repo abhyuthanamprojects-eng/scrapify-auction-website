@@ -290,7 +290,14 @@ class ScrapifyApiClient {
     });
   }
 
-  async submitVendorPayment(vendorCode: string, data: { method: string; reference: string }) {
+  async quoteVendorPayment(vendorCode: string, promoCode?: string) {
+    return this.request<any>(`/vendors/${vendorCode}/registration-payment/quote`, {
+      method: "POST",
+      body: JSON.stringify({ promo_code: promoCode || null }),
+    });
+  }
+
+  async submitVendorPayment(vendorCode: string, data: { method: string; reference: string; promo_code?: string }) {
     return this.request<any>(`/vendors/${vendorCode}/registration-payment`, {
       method: "POST",
       body: JSON.stringify(data),

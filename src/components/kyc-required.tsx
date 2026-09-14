@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { ShieldCheck } from "lucide-react";
 
 export function KycRequired({ feature }: { feature: string }) {
@@ -15,15 +14,32 @@ export function KycRequired({ feature }: { feature: string }) {
           Complete Your KYC
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Complete your KYC &amp; business verification to access {feature}.
+          Your profile is under review. {feature} will be available after an administrator approves your KYC.
         </p>
-        <Link
-          to="/portal/profile"
-          className="mt-8 inline-flex items-center gap-2.5 rounded-full bg-[color:var(--navy)] px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-[color:var(--navy)]/20 transition hover:brightness-110"
-        >
+        <div className="mt-8 inline-flex cursor-not-allowed items-center gap-2.5 rounded-full border border-border bg-muted px-7 py-3.5 text-sm font-bold text-muted-foreground">
           <ShieldCheck className="h-4 w-4" />
-          Start Verification
-        </Link>
+          Your profile is under review
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function PendingReviewWorkspace({ companyName }: { companyName: string }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-6">
+      <div className="mx-auto max-w-lg text-center">
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl border border-[color:var(--gold-soft)]/20 bg-[color:var(--auction)]/[.06]">
+          <ShieldCheck className="h-10 w-10 text-[color:var(--auction)]/70" />
+        </div>
+        <p className="text-xs font-extrabold uppercase tracking-[0.15em] text-[color:var(--auction)]/60">Verification pending</p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-foreground">Your profile is under review</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          {companyName} is being reviewed by the Scrapify verification team. Auction participation, terms acceptance, and other protected actions remain unavailable until KYC approval.
+        </p>
+        <div className="mt-8 inline-flex cursor-not-allowed items-center rounded-full border border-border bg-muted px-7 py-3.5 text-sm font-bold text-muted-foreground">
+          Your profile is under review
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { Gavel, ShieldCheck, Store, PackageCheck, FileText, Award, UserCircle } from "lucide-react";
 import { requireRole } from "@/lib/route-guards";
+import { PendingReviewWorkspace } from "@/components/kyc-required";
 
 export const Route = createFileRoute("/portal")({
   ssr: false,
@@ -22,6 +23,10 @@ function PortalLayout() {
 
   const companyName = user?.vendor?.company_name || user?.organization?.name || user?.name || user?.email || "Vendor Workspace";
   const isVerified = user?.vendor?.status === "approved";
+
+  if (!isVerified) {
+    return <PendingReviewWorkspace companyName={companyName} />;
+  }
 
   return (
     <div className="min-h-screen bg-background">

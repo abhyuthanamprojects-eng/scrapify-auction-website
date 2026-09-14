@@ -1536,6 +1536,8 @@ function Step4({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [registrationFee, setRegistrationFee] = useState<number | null>(null);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoPricing, setPromoPricing] = useState<any>(null);
 
   useEffect(() => {
     if (phase !== "pending" || !api.getToken()) return;
@@ -1689,9 +1691,35 @@ function Step4({
         <div className="rounded-xl bg-muted p-4 text-sm text-foreground">
           Amount payable:{" "}
           <b className="font-display">
-            {registrationFee == null ? "Loading…" : `₹${registrationFee.toLocaleString("en-IN")}`}
+            {promoPricing?.payable_amount != null
+              ? `₹${Number(promoPricing.payable_amount).toLocaleString("en-IN")}`
+              : registrationFee == null
+                ? "Loading…"
+                : `₹${registrationFee.toLocaleString("en-IN")}`}
           </b>{" "}
           (one-time, non-refundable KYC processing fee).
+        </div>
+
+        <div className="space-y-2">
+          <Field label="Promo code (optional)" value={promoCode} onChange={(value) => { setPromoCode(value.toUpperCase()); setPromoPricing(null); }} placeholder="Enter offer code" />
+          <SecondaryButton
+            onClick={async () => {
+              if (!promoCode.trim() || !state.vendorCode) return;
+              setBusy(true);
+              setError(null);
+              try {
+                const response = await api.quoteVendorPayment(state.vendorCode, promoCode.trim());
+                setPromoPricing(response.pricing ?? response.data?.pricing ?? response);
+              } catch (cause) {
+                setPromoPricing(null);
+                setError(cause instanceof Error ? cause.message : "Promo code could not be applied.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+            disabled={!promoCode.trim() || !state.vendorCode || busy}
+          >Apply promo code</SecondaryButton>
+          {promoPricing?.discount_amount > 0 && <p className="text-xs font-semibold text-emerald-700">Discount applied: ₹{Number(promoPricing.discount_amount).toLocaleString("en-IN")}</p>}
         </div>
 
         <Field
@@ -1715,6 +1743,7 @@ function Step4({
                 await api.submitVendorPayment(state.vendorCode, {
                   method,
                   reference: paymentReference.trim(),
+                  ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}),
                 });
                 update({
                   paymentMethod: method,

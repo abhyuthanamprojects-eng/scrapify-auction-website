@@ -33,6 +33,12 @@ function ProfilePage() {
   const { user } = Route.useRouteContext();
   const vendor = user?.vendor;
   const org = user?.organization;
+  const companyAddress =
+    vendor?.address ||
+    vendor?.address_line1 ||
+    [vendor?.city, vendor?.state, vendor?.pincode].filter(Boolean).join(", ");
+  const companyLocation =
+    vendor?.location || [vendor?.city, vendor?.state].filter(Boolean).join(", ");
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -158,11 +164,13 @@ function ProfilePage() {
           </div>
           <div className="space-y-4 p-5">
             <InfoRow icon={<Building2 className="h-4 w-4" />} label="Company Name" value={vendor?.company_name || org?.name || "—"} />
-            <InfoRow icon={<User className="h-4 w-4" />} label="Contact Person" value={vendor?.contact_name || "—"} />
-            <InfoRow icon={<Mail className="h-4 w-4" />} label="Business Email" value={vendor?.email || "—"} />
-            <InfoRow icon={<Phone className="h-4 w-4" />} label="Business Phone" value={vendor?.phone || "—"} />
-            <InfoRow icon={<MapPin className="h-4 w-4" />} label="Location" value={vendor?.location || "—"} />
-            <InfoRow icon={<MapPin className="h-4 w-4" />} label="Address" value={vendor?.address || "—"} />
+            <InfoRow icon={<User className="h-4 w-4" />} label="Contact Person" value={vendor?.contact_name || user?.name || "—"} />
+            <InfoRow icon={<Mail className="h-4 w-4" />} label="Business Email" value={vendor?.email || user?.email || "—"} />
+            <InfoRow icon={<Phone className="h-4 w-4" />} label="Business Phone" value={vendor?.phone || user?.phone || "—"} />
+            <InfoRow icon={<MapPin className="h-4 w-4" />} label="Location" value={companyLocation || "—"} />
+            <InfoRow icon={<MapPin className="h-4 w-4" />} label="Address" value={companyAddress || "—"} />
+            <InfoRow icon={<Building2 className="h-4 w-4" />} label="Business Type" value={vendor?.business_type || "—"} />
+            <InfoRow icon={<Clock className="h-4 w-4" />} label="Years in Business" value={vendor?.years_in_business || "—"} />
           </div>
         </Card>
 
@@ -177,6 +185,7 @@ function ProfilePage() {
             <InfoRow icon={<FileText className="h-4 w-4" />} label="GST Number" value={vendor?.gst_number || "—"} />
             <InfoRow icon={<CreditCard className="h-4 w-4" />} label="PAN Number" value={vendor?.pan_number || "—"} />
             <InfoRow icon={<FileText className="h-4 w-4" />} label="License Number" value={vendor?.license_number || "—"} />
+            <InfoRow icon={<CreditCard className="h-4 w-4" />} label="Annual Scrap Turnover" value={vendor?.turnover_band || "—"} />
           </div>
         </Card>
 
@@ -194,7 +203,7 @@ function ProfilePage() {
               value={
                 Array.isArray(vendor?.operating_states) && vendor.operating_states.length > 0
                   ? vendor.operating_states.join(", ")
-                  : "—"
+                  : companyLocation || "—"
               }
             />
             {Array.isArray(vendor?.warehouse_details) && vendor.warehouse_details.length > 0 ? (
