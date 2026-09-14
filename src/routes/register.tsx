@@ -804,6 +804,7 @@ function Step3({
     gstNumber: state.gstNumber,
     entityType: state.entityType,
     panNumber: state.panNumber,
+    turnoverBand: state.turnoverBand,
     licenseNumber: state.licenseNumber,
     contactName: state.contactName,
     contactMobile: state.contactMobile,
@@ -1070,6 +1071,7 @@ function Step3({
         gst_number: f.gstNumber,
         business_type: f.entityType,
         pan_number: f.panNumber,
+        turnover_band: f.turnoverBand,
         license_number: f.licenseNumber,
         bank_name: f.bankName,
         account_number: f.bankAccount,
@@ -1215,6 +1217,24 @@ function Step3({
           disabled={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
           readOnly={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
         />
+        <label className="block text-sm font-medium text-foreground">
+          Annual Scrap Turnover <span className="text-[color:var(--auction)]">*</span>
+          <select
+            value={f.turnoverBand}
+            onChange={(event) => set("turnoverBand")(event.target.value)}
+            className="mt-2 block h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            required
+          >
+            <option value="" disabled>Select annual turnover range</option>
+            <option value="&lt; ₹5 Cr">&lt; ₹5 Cr</option>
+            <option value="₹5 Cr - ₹25 Cr">₹5 Cr - ₹25 Cr</option>
+            <option value="₹25 Cr - ₹100 Cr">₹25 Cr - ₹100 Cr</option>
+            <option value="₹100 Cr+">₹100 Cr+</option>
+          </select>
+          <span className="mt-1 block text-xs font-normal text-muted-foreground">
+            Select the business&apos;s expected annual scrap turnover range.
+          </span>
+        </label>
         <Field
           label="Business License / Permit Number (optional)"
           value={f.licenseNumber}

@@ -38,6 +38,7 @@ export type RegistrationState = {
   gstNumber: string;
   entityType: string;
   panNumber: string;
+  turnoverBand: string;
   licenseNumber: string;
   materialInterest: string[];
   contactName: string;
@@ -89,6 +90,7 @@ export const emptyRegistration = (): RegistrationState => ({
   gstNumber: "",
   entityType: "",
   panNumber: "",
+  turnoverBand: "",
   licenseNumber: "",
   materialInterest: [],
   contactName: "",
