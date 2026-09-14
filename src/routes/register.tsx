@@ -316,30 +316,20 @@ function Step1({
 
   const onGoogle = async () => {
     setError(null);
-    if (!mobileVerified) {
-      setError("Verify your mobile OTP before continuing with Google.");
-      return;
-    }
-    update({ mobile });
     try {
       const { auth, googleProvider } = await getFirebaseAuth();
       const result = await signInWithPopup(auth, googleProvider);
-      const idToken = await result.user.getIdToken();
-      const res = await api.googleSignIn(idToken, mobile || undefined, state.role);
-      const user = res.user;
       update({
-        email: user?.email ?? result.user.email ?? email,
-        contactEmail: user?.email ?? result.user.email ?? email,
-        contactName: user?.name ?? result.user.displayName ?? state.contactName,
-        mobileOtpVerified: true,
+        email: result.user.email ?? email,
+        contactEmail: result.user.email ?? email,
+        contactName: result.user.displayName ?? state.contactName,
+        mobileOtpVerified: false,
         emailOtpVerified: true,
-        otpVerified: true,
+        otpVerified: false,
         googleLinked: true,
-        vendorCode: user?.vendor?.id ?? "",
-        completed: { ...state.completed, 1: true, 2: true },
-        step: 3,
+        completed: { ...state.completed, 1: true, 2: false },
+        step: 2,
       });
-      window.dispatchEvent(new CustomEvent("scrapify:auth"));
     } catch (err: any) {
       if (err?.code === "auth/popup-closed-by-user") return;
       setError(err instanceof Error ? err.message : "Google sign-up failed");
@@ -396,7 +386,7 @@ function Step1({
       return setError(`Enter the ${mobileOtpLength}-digit mobile OTP.`);
     try {
       await api.verifyOtp(mobile, mobileOtp, "register");
-      const complete = state.emailOtpVerified;
+      const complete = state.emailOtpVerified || emailVerified;
       update({
         mobile,
         mobileOtpVerified: true,
@@ -414,7 +404,7 @@ function Step1({
       return setError(`Enter the ${emailOtpLength}-digit email OTP.`);
     try {
       await api.verifyOtp(email, emailOtp, "register");
-      const complete = state.mobileOtpVerified;
+      const complete = state.mobileOtpVerified || mobileVerified;
       update({
         email,
         emailOtpVerified: true,
@@ -592,21 +582,40 @@ function Step1({
       </div>
 
       {error && <ErrorLine>{error}</ErrorLine>}
-      <div className="flex items-center gap-3 pt-1 text-xs uppercase tracking-wider text-muted-foreground">
-        <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
-      </div>
-      <button
-        type="button"
-        onClick={onGoogle}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-      >
-        <GoogleMark />
-        Register with Google
-      </button>
-      <p className="text-center text-xs text-muted-foreground">
-        Google verifies your email. Verify mobile OTP first, then you can continue directly to
-        Company Information &amp; KYC.
-      </p>
+      {mobileVerified && emailVerified && (
+        <PrimaryButton
+          onClick={() =>
+            update({
+              mobile,
+              email,
+              otpVerified: true,
+              completed: { ...state.completed, 1: true },
+              step: 2,
+            })
+          }
+        >
+          Continue to Login Details
+        </PrimaryButton>
+      )}
+      {!emailVerified && (
+        <>
+          <div className="flex items-center gap-3 pt-1 text-xs uppercase tracking-wider text-muted-foreground">
+            <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
+          </div>
+          <button
+            type="button"
+            onClick={onGoogle}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+          >
+            <GoogleMark />
+            Register with Google
+          </button>
+          <p className="text-center text-xs text-muted-foreground">
+            Google verifies your email. Verify mobile OTP first, then you can continue directly to
+            Company Information &amp; KYC.
+          </p>
+        </>
+      )}
     </FormShell>
   );
 }
@@ -622,6 +631,11 @@ function Step2({
 }) {
   const [password, setPassword] = useState(state.password);
   const [confirm, setConfirm] = useState(state.confirmPassword);
+  const [mobile, setMobile] = useState(state.mobile);
+  const [mobileOtp, setMobileOtp] = useState("");
+  const [mobileOtpSent, setMobileOtpSent] = useState(false);
+  const [mobileOtpPending, setMobileOtpPending] = useState(false);
+  const [mobileError, setMobileError] = useState<string | null>(null);
   const [showA, setShowA] = useState(false);
   const [showB, setShowB] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -637,7 +651,46 @@ function Step2({
     /[A-Z]/.test(password) &&
     /\d/.test(password) &&
     /[^A-Za-z0-9]/.test(password);
-  const canContinue = matches && strong;
+  const mobileVerified = state.mobileOtpVerified;
+  const mobileValid = /^[6-9]\d{9}$/.test(mobile);
+  const canContinue = matches && strong && mobileVerified;
+
+  const sendMobileOtp = async () => {
+    setMobileError(null);
+    if (!mobileValid) {
+      setMobileError("Enter a valid 10-digit Indian mobile number.");
+      return;
+    }
+    setMobileOtpPending(true);
+    try {
+      await api.requestOtp(mobile, "register");
+      setMobileOtpSent(true);
+      update({ mobile });
+    } catch (cause) {
+      setMobileError(cause instanceof Error ? cause.message : "Could not send mobile OTP.");
+    } finally {
+      setMobileOtpPending(false);
+    }
+  };
+
+  const verifyMobileOtp = async () => {
+    setMobileError(null);
+    if (!/^\d{4}$/.test(mobileOtp)) {
+      setMobileError("Enter the 4-digit mobile OTP.");
+      return;
+    }
+    setMobileOtpPending(true);
+    try {
+      await api.verifyOtp(mobile, mobileOtp, "register");
+      update({ mobile, mobileOtpVerified: true, otpVerified: state.emailOtpVerified });
+      setMobileOtpSent(false);
+      setMobileOtp("");
+    } catch (cause) {
+      setMobileError(cause instanceof Error ? cause.message : "Mobile OTP verification failed.");
+    } finally {
+      setMobileOtpPending(false);
+    }
+  };
 
   const submit = async () => {
     if (!canContinue || submitInFlight.current) return;
@@ -727,6 +780,54 @@ function Step2({
         show={showB}
         onToggle={() => setShowB((v) => !v)}
       />
+      {!mobileVerified && (
+        <div className="rounded-xl border border-border bg-muted/30 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-sm font-semibold">Verify mobile number</span>
+            <span className="text-xs text-muted-foreground">Required before registration</span>
+          </div>
+          <Field
+            label="Mobile Number"
+            type="tel"
+            value={mobile}
+            onChange={(value) => {
+              setMobile(value);
+              setMobileOtpSent(false);
+              setMobileOtp("");
+              update({ mobile: value, mobileOtpVerified: false, otpVerified: false });
+            }}
+            placeholder="10-digit mobile"
+            maxLength={10}
+          />
+          {!mobileOtpSent ? (
+            <div className="mt-3">
+              <PrimaryButton onClick={sendMobileOtp} disabled={!mobileValid || mobileOtpPending}>
+                {mobileOtpPending ? "Sending…" : "Send SMS OTP"}
+              </PrimaryButton>
+            </div>
+          ) : (
+            <div className="mt-3 space-y-3">
+              <Field
+                label="SMS code"
+                type="text"
+                value={mobileOtp}
+                onChange={setMobileOtp}
+                placeholder="4-digit code"
+                maxLength={4}
+              />
+              <PrimaryButton onClick={verifyMobileOtp} disabled={mobileOtpPending}>
+                {mobileOtpPending ? "Verifying…" : "Verify mobile"}
+              </PrimaryButton>
+            </div>
+          )}
+          {mobileError && <ErrorLine>{mobileError}</ErrorLine>}
+        </div>
+      )}
+      {mobileVerified && (
+        <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+          Mobile number verified
+        </div>
+      )}
       {confirm.length > 0 && !matches && <ErrorLine>Passwords do not match.</ErrorLine>}
       {error && <ErrorLine>{error}</ErrorLine>}
 
