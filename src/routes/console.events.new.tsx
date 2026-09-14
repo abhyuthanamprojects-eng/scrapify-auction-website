@@ -166,6 +166,7 @@ function CreateEventWizard() {
   const [published, setPublished] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [createdAuctionCode, setCreatedAuctionCode] = useState<string | null>(null);
   useEffect(() => {
     if (!category && categories[0]) setCategory(categories[0]);
   }, [category, categories]);
@@ -323,14 +324,18 @@ function CreateEventWizard() {
       if (!willUploadTemplate) {
         auctionPayload.sub_lots = lines.map((line) => ({
           name: line.description,
-          quantity: line.quantity,
+          quantity: Number(line.quantity) || 0,
           uom: line.unit || "Nos.",
           reserve_price: Number(line.startPrice || baseline),
         }));
       }
-      const response = await api.createAuction(auctionPayload);
-      const code = response?.data?.code ?? response?.code;
-      if (!code) throw new Error("The API did not return the created event code.");
+      let code = createdAuctionCode;
+      if (!code) {
+        const response = await api.createAuction(auctionPayload);
+        code = response?.data?.code ?? response?.code;
+        if (!code) throw new Error("The API did not return the created event code.");
+        setCreatedAuctionCode(code);
+      }
 
       // Upload template file if one was selected but not yet uploaded
       if (templateFile && templateInfo?.id && !templateConfirmed) {
@@ -1028,7 +1033,7 @@ function CreateEventWizard() {
                       </div>
                     </div>
                     <Pill tone={v.compliance === "valid" ? "good" : "warn"}>
-                      {v.compliance.toUpperCase()}
+                      {(v.compliance ?? "unknown").toUpperCase()}
                     </Pill>
                   </label>
                 );
