@@ -107,8 +107,10 @@ function RegisterWizard() {
   const step = state.step;
   const [hydrated, setHydrated] = useState(false);
 
-  // Ensure hydration completes before rendering step-dependent content
   useEffect(() => {
+    if (state.paymentSubmitted || state.vendorStatus !== "none") {
+      clearRegistration();
+    }
     setHydrated(true);
   }, []);
 

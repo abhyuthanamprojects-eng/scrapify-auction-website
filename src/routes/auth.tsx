@@ -48,6 +48,10 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [loginMethod, setLoginMethod] = useState<"email" | "mobile">("email");
+  const [otpStep, setOtpStep] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpDestination, setOtpDestination] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -115,10 +119,38 @@ function AuthPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!isEmail(email)) {
-      setError("Enter a valid email address.");
+    if (mode === "signin" && otpStep) {
+      if (!/^\d{4}$/.test(otp)) { setError("Enter the 4-digit OTP."); return; }
+      setBusy(true);
+      try {
+        const response = await api.verifyOtp(otpDestination, otp, "login");
+        const workspace = workspaceFor(response.user ?? response.data?.user ?? response.data);
+        if (!workspace) { api.setToken(null); throw new Error("This account must sign in through the Admin Portal."); }
+        window.dispatchEvent(new CustomEvent("scrapify:auth"));
+        navigate({ to: target(search.redirect ?? null, workspace) });
+      } catch (err) { setError(err instanceof Error ? err.message : "OTP verification failed."); }
+      finally { setBusy(false); }
       return;
     }
+    if (mode === "signin") {
+      const identifier = loginMethod === "email" ? email.trim() : phone.trim();
+      if (loginMethod === "email" ? !isEmail(identifier) : !isIndianMobile(identifier)) {
+        setError(loginMethod === "email" ? "Enter a valid email address." : "Enter a valid Indian mobile number.");
+        return;
+      }
+      setBusy(true);
+      try {
+        const response = await api.requestOtp(identifier, "login");
+        setOtpDestination(identifier);
+        setOtp("");
+        setOtpStep(true);
+        setError(null);
+        void response;
+      } catch (err) { setError(err instanceof Error ? err.message : "We could not send the OTP."); }
+      finally { setBusy(false); }
+      return;
+    }
+    if (!isEmail(email)) { setError("Enter a valid email address."); return; }
     if (mode === "signup" && !isIndianMobile(phone)) {
       setError("Enter a valid Indian mobile number.");
       return;
@@ -198,7 +230,16 @@ function AuthPage() {
           </div>
 
           <form onSubmit={onSubmit} className="mt-5 space-y-3">
-            {mode === "signup" && (
+            {mode === "signin" && otpStep ? (
+              <>
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/80">
+                  OTP sent to <span className="font-semibold text-white">{otpDestination}</span>
+                </div>
+                <Field label="4-digit OTP" type="text" value={otp} onChange={(v) => setOtp(v.replace(/\D/g, "").slice(0, 4))} required />
+                <button type="button" className="text-sm text-[color:var(--auction)] hover:underline" onClick={() => { setOtpStep(false); setOtp(""); }}>Change email/mobile</button>
+              </>
+            ) : mode === "signup" ? (
+              <>
               <Field
                 label="Full name"
                 type="text"
@@ -206,20 +247,21 @@ function AuthPage() {
                 onChange={setFullName}
                 required
               />
-            )}
-            {mode === "signup" && (
               <Field label="Mobile" type="tel" value={phone} onChange={setPhone} required />
+              <Field label="Email" type="email" value={email} onChange={setEmail} required />
+              <Field label="Password" type="password" value={password} onChange={setPassword} required minLength={8} />
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["email", "mobile"] as const).map((method) => (
+                    <button key={method} type="button" onClick={() => setLoginMethod(method)} className={`rounded-lg border px-3 py-2 text-sm font-semibold capitalize ${loginMethod === method ? "border-[color:var(--auction)] bg-[color:var(--auction)]/10" : "border-white/10"}`}>{method}</button>
+                  ))}
+                </div>
+                <Field label={loginMethod === "email" ? "Email" : "Mobile"} type={loginMethod === "email" ? "email" : "tel"} value={loginMethod === "email" ? email : phone} onChange={loginMethod === "email" ? setEmail : setPhone} required />
+                <p className="text-xs text-white/50">We’ll send a one-time code to the selected email or mobile number.</p>
+              </>
             )}
-            <Field label="Email" type="email" value={email} onChange={setEmail} required />
-            <Field
-              label="Password"
-              type="password"
-              value={password}
-              onChange={setPassword}
-              required
-              minLength={8}
-            />
-
             {error && (
               <div className="rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
                 {error}
@@ -231,7 +273,7 @@ function AuthPage() {
               disabled={busy}
               className="w-full rounded-full bg-[color:var(--auction)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(249,115,22,0.7)] transition-colors hover:brightness-110 disabled:opacity-60"
             >
-              {busy ? "Please wait…" : mode === "signin" ? `Sign in as ${role}` : `Create ${role} account`}
+              {busy ? "Please wait…" : mode === "signin" ? (otpStep ? "Verify OTP" : "Send OTP") : `Create ${role} account`}
             </button>
           </form>
 
