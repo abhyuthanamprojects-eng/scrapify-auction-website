@@ -380,6 +380,47 @@ class ScrapifyApiClient {
     });
   }
 
+  /* ---------------- Auction Templates ---------------- */
+  async getTemplateForCategory(categoryId: number | string, params: Record<string, any> = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request<any>(`/categories/${categoryId}/auction-template${query ? `?${query}` : ""}`);
+  }
+
+  getTemplateDownloadUrl(templateId: number | string): string {
+    return `${API_BASE_URL}/auction-templates/${templateId}/download`;
+  }
+
+  async uploadAuctionTemplate(auctionCode: string, templateId: number | string, file: File) {
+    const formData = new FormData();
+    formData.append("template_id", String(templateId));
+    formData.append("file", file);
+
+    const url = `${API_BASE_URL}/auctions/${auctionCode}/template-upload`;
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
+
+    const res = await fetch(url, { method: "POST", headers, body: formData });
+    if (!res.ok) {
+      if (res.status === 401) {
+        this.setToken(null);
+        if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("scrapify:auth"));
+        throw new Error("Session expired");
+      }
+      const json = await res.json();
+      if (res.status === 422) return json;
+      throw new Error(json.message || "Upload failed");
+    }
+    return res.json();
+  }
+
+  async confirmTemplateImport(auctionCode: string, uploadId: number | string) {
+    return this.request<any>(`/auctions/${auctionCode}/template-upload/${uploadId}/confirm`, { method: "POST" });
+  }
+
+  async getUploadResult(auctionCode: string, uploadId: number | string) {
+    return this.request<any>(`/auctions/${auctionCode}/template-upload/${uploadId}`);
+  }
+
   /* ---------------- Live Bidding ---------------- */
   async getLiveState(code: string) {
     return this.request<any>(`/auctions/${code}/live-state`);
@@ -461,10 +502,6 @@ class ScrapifyApiClient {
     return this.request<ApiResponse<any>>(`/auctions/${code}/addenda/${addendumId}/acknowledge`, {
       method: "POST",
     });
-  }
-
-  async acceptAuctionTerms(code: string) {
-    return this.request<ApiResponse<any>>(`/auctions/${code}/terms/accept`, { method: "POST" });
   }
 
   /* ---------------- Approvals & Governance ---------------- */

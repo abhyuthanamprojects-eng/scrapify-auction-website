@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   ChevronLeft,
@@ -9,6 +9,13 @@ import {
   UploadCloud,
   FileSpreadsheet,
   ShieldAlert,
+  Download,
+  AlertTriangle,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Copy,
+  Info,
 } from "lucide-react";
 import {
   CATEGORY_ATTRIBUTES,
@@ -65,9 +72,8 @@ const STEPS = [
 function CreateEventWizard() {
   const navigate = useNavigate();
   const [categoryResponse, vendorResponse] = Route.useLoaderData();
-  const categories = (Array.isArray(categoryResponse?.data) ? categoryResponse.data : []).map(
-    (c: any) => String(c.name ?? c),
-  );
+  const categoryObjects: any[] = Array.isArray(categoryResponse?.data) ? categoryResponse.data : [];
+  const categories = categoryObjects.map((c: any) => String(c.name ?? c));
   const vendors = Array.isArray(vendorResponse?.data) ? vendorResponse.data : [];
   const [step, setStep] = useState(0);
 
@@ -98,6 +104,17 @@ function CreateEventWizard() {
       attributes: {},
     },
   ]);
+  // Step 4: Template import
+  const [templateInfo, setTemplateInfo] = useState<any>(null);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateFile, setTemplateFile] = useState<File | null>(null);
+  const [templateUploading, setTemplateUploading] = useState(false);
+  const [templateUploadResult, setTemplateUploadResult] = useState<any>(null);
+  const [templateConfirming, setTemplateConfirming] = useState(false);
+  const [templateConfirmed, setTemplateConfirmed] = useState(false);
+  const [templateImportedLots, setTemplateImportedLots] = useState<Line[]>([]);
+  const templateFileRef = useRef<HTMLInputElement>(null);
+
   // Step 5: Documents
   const [docs, setDocs] = useState([
     "Full Technical Specification.pdf",
@@ -154,6 +171,91 @@ function CreateEventWizard() {
   }, [category, categories]);
 
   const attrs = CATEGORY_ATTRIBUTES[category] ?? [];
+
+  const selectedCategoryObj = categoryObjects.find(
+    (c: any) => String(c.name ?? c) === category,
+  );
+  const selectedCategoryId = selectedCategoryObj?.id ?? selectedCategoryObj?.code;
+
+  // Fetch template info when category changes
+  useEffect(() => {
+    if (!selectedCategoryId) {
+      setTemplateInfo(null);
+      return;
+    }
+    let cancelled = false;
+    setTemplateLoading(true);
+    setTemplateInfo(null);
+    setTemplateFile(null);
+    setTemplateUploadResult(null);
+    setTemplateConfirmed(false);
+    setTemplateImportedLots([]);
+    api
+      .getTemplateForCategory(selectedCategoryId)
+      .then((res) => {
+        if (!cancelled) setTemplateInfo(res?.data ?? res);
+      })
+      .catch(() => {
+        if (!cancelled) setTemplateInfo(null);
+      })
+      .finally(() => {
+        if (!cancelled) setTemplateLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCategoryId]);
+
+  const handleTemplateUpload = useCallback(
+    async (file: File, auctionCode: string) => {
+      if (!templateInfo?.id) return;
+      setTemplateUploading(true);
+      setTemplateUploadResult(null);
+      try {
+        const result = await api.uploadAuctionTemplate(auctionCode, templateInfo.id, file);
+        setTemplateUploadResult(result);
+      } catch (err) {
+        setTemplateUploadResult({
+          success: false,
+          message: err instanceof Error ? err.message : "Upload failed",
+        });
+      } finally {
+        setTemplateUploading(false);
+      }
+    },
+    [templateInfo],
+  );
+
+  const handleTemplateConfirm = useCallback(
+    async (auctionCode: string, uploadId: number | string) => {
+      setTemplateConfirming(true);
+      try {
+        const result = await api.confirmTemplateImport(auctionCode, uploadId);
+        setTemplateConfirmed(true);
+        // Convert imported rows to Line[] format
+        const importedRows: any[] = result?.data?.lots ?? result?.data?.rows ?? result?.lots ?? [];
+        if (importedRows.length > 0) {
+          const converted: Line[] = importedRows.map((row: any) => ({
+            description: row.description ?? row.name ?? row.item ?? "",
+            quantity: String(row.quantity ?? ""),
+            unit: row.unit ?? row.uom ?? "Nos.",
+            startPrice: String(row.start_price ?? row.reserve_price ?? row.price ?? ""),
+            attributes: row.attributes ?? {},
+          }));
+          setTemplateImportedLots(converted);
+          setLines(converted);
+        }
+      } catch (err) {
+        setTemplateUploadResult((prev: any) => ({
+          ...prev,
+          confirmError: err instanceof Error ? err.message : "Confirm failed",
+        }));
+      } finally {
+        setTemplateConfirming(false);
+      }
+    },
+    [],
+  );
 
   const checks = useMemo(
     () => [
@@ -242,6 +344,20 @@ function CreateEventWizard() {
       });
       const code = response?.data?.code ?? response?.code;
       if (!code) throw new Error("The API did not return the created event code.");
+
+      // Upload template file if one was selected but not yet uploaded
+      if (templateFile && templateInfo?.id && !templateConfirmed) {
+        const uploadResult = await api.uploadAuctionTemplate(code, templateInfo.id, templateFile);
+        if (uploadResult?.success && uploadResult?.data?.upload_id) {
+          await api.confirmTemplateImport(code, uploadResult.data.upload_id);
+        } else if (!uploadResult?.success) {
+          setTemplateUploadResult(uploadResult);
+          throw new Error(
+            uploadResult?.message || "Template validation failed. Fix errors and try again.",
+          );
+        }
+      }
+
       await api.updateAuctionConfiguration(code, {
         rfq_required: enableRfx,
         rfq_mode: "DOCUMENT",
@@ -476,7 +592,7 @@ function CreateEventWizard() {
         {step === 3 && (
           <Card
             title="Step 4 — Lots, Line Items & BOQ"
-            desc="Add items with sector-specific attributes or import from Excel/CSV"
+            desc="Import from official Excel template or add items manually"
             actions={
               <button
                 type="button"
@@ -498,7 +614,196 @@ function CreateEventWizard() {
               </button>
             }
           >
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Template Import Section */}
+              {templateLoading && (
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Checking for category template...
+                </div>
+              )}
+
+              {templateInfo?.id && !templateConfirmed && (
+                <div className="rounded-xl border border-[color:var(--navy)]/30 bg-[color:var(--navy)]/5 p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm font-bold text-[color:var(--navy)]">
+                        <FileSpreadsheet className="h-4 w-4" />
+                        Import from Official Template
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Download the Excel template for <strong>{category}</strong>, fill in your lot
+                        details, then upload the completed file.
+                      </p>
+                      {templateInfo.version && (
+                        <span className="mt-1 inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                          v{templateInfo.version}
+                        </span>
+                      )}
+                    </div>
+                    <a
+                      href={api.getTemplateDownloadUrl(templateInfo.id)}
+                      download
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[color:var(--navy)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download Template
+                    </a>
+                  </div>
+
+                  {/* Upload area */}
+                  <div>
+                    <input
+                      ref={templateFileRef}
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setTemplateFile(file);
+                          setTemplateUploadResult(null);
+                        }
+                      }}
+                    />
+                    {!templateFile ? (
+                      <button
+                        type="button"
+                        onClick={() => templateFileRef.current?.click()}
+                        className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-6 text-center hover:bg-muted/30 transition-colors"
+                      >
+                        <UploadCloud className="h-8 w-8 text-muted-foreground mb-1.5" />
+                        <span className="text-xs font-semibold text-foreground">
+                          Click to upload completed template
+                        </span>
+                        <span className="text-[11px] text-muted-foreground mt-0.5">
+                          .xlsx, .xls, or .csv
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3">
+                        <div className="flex items-center gap-2 text-xs">
+                          <FileSpreadsheet className="h-4 w-4 text-[color:var(--navy)]" />
+                          <span className="font-semibold">{templateFile.name}</span>
+                          <span className="text-muted-foreground">
+                            ({(templateFile.size / 1024).toFixed(1)} KB)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTemplateFile(null);
+                              setTemplateUploadResult(null);
+                              if (templateFileRef.current) templateFileRef.current.value = "";
+                            }}
+                            className="text-xs text-muted-foreground hover:text-destructive"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upload result with note about needing auction code */}
+                  {templateFile && !templateUploadResult && (
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-200">
+                      <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span>
+                        The template will be validated and imported after the auction draft is
+                        created at the final step. Continue filling in the remaining wizard steps,
+                        and the template file will be uploaded when you publish.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Validation errors display */}
+                  {templateUploadResult && !templateUploadResult.success && (
+                    <TemplateErrors result={templateUploadResult} templateInfo={templateInfo} />
+                  )}
+
+                  {/* Upload success with preview */}
+                  {templateUploadResult?.success && templateUploadResult?.data?.rows && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-xs font-bold text-[color:var(--success)]">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Template validated — {templateUploadResult.data.rows.length} lot(s) parsed
+                      </div>
+                      <div className="max-h-60 overflow-auto rounded-lg border border-border">
+                        <table className="w-full text-xs">
+                          <thead className="bg-muted/60 sticky top-0">
+                            <tr>
+                              <th className="p-2 text-left font-semibold">#</th>
+                              <th className="p-2 text-left font-semibold">Description</th>
+                              <th className="p-2 text-right font-semibold">Qty</th>
+                              <th className="p-2 text-left font-semibold">UOM</th>
+                              <th className="p-2 text-right font-semibold">Price</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {templateUploadResult.data.rows.map((row: any, i: number) => (
+                              <tr key={i} className="border-t border-border">
+                                <td className="p-2 font-mono text-muted-foreground">{i + 1}</td>
+                                <td className="p-2">{row.description ?? row.name ?? "—"}</td>
+                                <td className="p-2 text-right font-mono">{row.quantity ?? "—"}</td>
+                                <td className="p-2">{row.unit ?? row.uom ?? "—"}</td>
+                                <td className="p-2 text-right font-mono">
+                                  {row.start_price ?? row.reserve_price ?? row.price ?? "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {!templateConfirmed && templateUploadResult.data?.upload_id && (
+                        <button
+                          type="button"
+                          disabled={templateConfirming}
+                          onClick={() =>
+                            handleTemplateConfirm(
+                              templateUploadResult.data.auction_code,
+                              templateUploadResult.data.upload_id,
+                            )
+                          }
+                          className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--success)] px-5 py-2 text-xs font-bold text-white hover:brightness-110 disabled:opacity-50"
+                        >
+                          {templateConfirming ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5" />
+                          )}
+                          Confirm Import
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Show confirmation banner when template lots are imported */}
+              {templateConfirmed && templateImportedLots.length > 0 && (
+                <div className="flex items-center gap-2 rounded-xl border border-[color:var(--success)]/30 bg-[color:var(--success)]/5 p-3 text-xs font-semibold text-[color:var(--success)]">
+                  <CheckCircle2 className="h-4 w-4" />
+                  {templateImportedLots.length} lot(s) imported from template
+                </div>
+              )}
+
+              {/* Separator when both template and manual are visible */}
+              {templateInfo?.id && !templateConfirmed && (
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-card px-3 text-xs font-semibold text-muted-foreground">
+                      OR ADD LOTS MANUALLY
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Manual lot entry */}
               {lines.map((l, idx) => (
                 <div
                   key={idx}
@@ -944,6 +1249,125 @@ function CreateEventWizard() {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function TemplateErrors({
+  result,
+  templateInfo,
+}: {
+  result: any;
+  templateInfo: any;
+}) {
+  const errors: any[] = result?.data?.errors ?? result?.errors ?? [];
+  const isWrongTemplate = result?.error?.code === "WRONG_TEMPLATE" || result?.code === "WRONG_TEMPLATE";
+  const isOldVersion = result?.error?.code === "OLD_VERSION" || result?.code === "OLD_VERSION";
+
+  const copyErrors = () => {
+    const text = errors
+      .map(
+        (e: any) =>
+          `Row ${e.row ?? "?"}, Column "${e.column ?? e.field ?? "?"}": ${e.message ?? e.error ?? "Invalid"} (value: ${e.value ?? "—"})`,
+      )
+      .join("\n");
+    navigator.clipboard.writeText(text);
+  };
+
+  return (
+    <div className="space-y-3">
+      {isWrongTemplate && (
+        <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs">
+          <ShieldAlert className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+          <div>
+            <div className="font-bold text-destructive">Wrong Template</div>
+            <p className="mt-0.5 text-muted-foreground">
+              The uploaded file does not match the expected template for this category.
+            </p>
+            {templateInfo?.id && (
+              <a
+                href={api.getTemplateDownloadUrl(templateInfo.id)}
+                download
+                className="mt-1.5 inline-flex items-center gap-1 text-[color:var(--navy)] font-semibold hover:underline"
+              >
+                <Download className="h-3 w-3" />
+                Download correct template
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isOldVersion && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 text-xs">
+          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <div className="font-bold text-amber-700 dark:text-amber-300">Outdated Template Version</div>
+            <p className="mt-0.5 text-muted-foreground">
+              {result?.message ?? "A newer version of the template is available."}
+            </p>
+            {templateInfo?.id && (
+              <a
+                href={api.getTemplateDownloadUrl(templateInfo.id)}
+                download
+                className="mt-1.5 inline-flex items-center gap-1 text-[color:var(--navy)] font-semibold hover:underline"
+              >
+                <Download className="h-3 w-3" />
+                Download current version
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!isWrongTemplate && !isOldVersion && result?.message && (
+        <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs font-semibold text-destructive">
+          <XCircle className="h-4 w-4" />
+          {result.message}
+        </div>
+      )}
+
+      {errors.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-destructive">
+              {errors.length} validation error(s)
+            </span>
+            <button
+              type="button"
+              onClick={copyErrors}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+            >
+              <Copy className="h-3 w-3" />
+              Copy All Errors
+            </button>
+          </div>
+          <div className="max-h-48 overflow-auto rounded-lg border border-border">
+            <table className="w-full text-[11px]">
+              <thead className="bg-muted/60 sticky top-0">
+                <tr>
+                  <th className="p-1.5 text-left font-semibold">Row</th>
+                  <th className="p-1.5 text-left font-semibold">Column</th>
+                  <th className="p-1.5 text-left font-semibold">Value</th>
+                  <th className="p-1.5 text-left font-semibold">Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {errors.map((err: any, i: number) => (
+                  <tr key={i} className="border-t border-border">
+                    <td className="p-1.5 font-mono">{err.row ?? "—"}</td>
+                    <td className="p-1.5">{err.column ?? err.field ?? "—"}</td>
+                    <td className="p-1.5 font-mono text-muted-foreground max-w-[120px] truncate">
+                      {err.value ?? "—"}
+                    </td>
+                    <td className="p-1.5 text-destructive">{err.message ?? err.error ?? "Invalid"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
