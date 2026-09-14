@@ -8,7 +8,13 @@ import heroImg from "@/assets/hero-scrapyard.jpg";
 
 export const Route = createFileRoute("/")({
   loader: async () => {
-    const [lots, categories] = await Promise.all([getAuctions(), getCategories()]);
+    // Marketplace SSR must remain available when the upstream API is
+    // temporarily rate-limited or unavailable. The client will retry on the
+    // next navigation/refresh instead of turning the whole homepage into 500.
+    const [lots, categories] = await Promise.all([
+      getAuctions().catch(() => []),
+      getCategories().catch(() => ["All"]),
+    ]);
     return { lots, categories };
   },
   head: () => ({

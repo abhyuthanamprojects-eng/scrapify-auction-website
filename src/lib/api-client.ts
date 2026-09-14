@@ -85,7 +85,15 @@ class ScrapifyApiClient {
         headers,
       });
 
-      const json = await res.json();
+      const responseText = await res.text();
+      let json: any = {};
+      if (responseText.trim()) {
+        try {
+          json = JSON.parse(responseText);
+        } catch {
+          json = { message: responseText };
+        }
+      }
       if (!res.ok) {
         if (res.status === 401) {
           this.setToken(null);
