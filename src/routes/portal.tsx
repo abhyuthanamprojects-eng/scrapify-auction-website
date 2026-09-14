@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-import { Gavel, ShieldCheck, Store, PackageCheck, FileText, Award } from "lucide-react";
+import { Gavel, ShieldCheck, Store, PackageCheck, FileText, Award, UserCircle } from "lucide-react";
 import { requireRole } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/portal")({
@@ -18,6 +18,7 @@ function PortalLayout() {
     { to: "/portal/team", label: "My Team" },
     { to: "/portal/documents", label: "My Documents" },
     { to: "/portal/performance", label: "My Scorecard" },
+    { to: "/portal/profile", label: "My Profile" },
   ];
 
   const companyName = user?.vendor?.company_name || user?.organization?.name || user?.name || user?.email || "Vendor Workspace";

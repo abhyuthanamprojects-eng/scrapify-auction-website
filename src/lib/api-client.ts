@@ -698,6 +698,42 @@ class ScrapifyApiClient {
     });
   }
 
+  /* ---------------- Profile ---------------- */
+  async updateProfile(data: { name?: string; email?: string; phone?: string }) {
+    return this.request<any>("/profile", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAddresses() {
+    return this.request<any>("/profile/addresses");
+  }
+
+  async storeAddress(data: any) {
+    return this.request<any>("/profile/addresses", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAddress(id: number, data: any) {
+    return this.request<any>(`/profile/addresses/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAddress(id: number) {
+    return this.request<any>(`/profile/addresses/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async getPaymentMethods() {
+    return this.request<any>("/profile/payment-methods");
+  }
+
   /* ---------------- Reports & Audit ---------------- */
   async getDashboardReports() {
     return this.request<any>("/reports/dashboard");
