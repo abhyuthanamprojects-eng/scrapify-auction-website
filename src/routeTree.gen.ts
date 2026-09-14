@@ -42,7 +42,6 @@ import { Route as PortalDocumentsRouteImport } from './routes/portal.documents'
 import { Route as PortalOrdersRouteImport } from './routes/portal.orders'
 import { Route as PortalPerformanceRouteImport } from './routes/portal.performance'
 import { Route as PortalProfileRouteImport } from './routes/portal.profile'
-import { Route as PortalTeamRouteImport } from './routes/portal.team'
 import { Route as ResultsIdRouteImport } from './routes/results.$id'
 import { Route as ConsoleEventsIndexRouteImport } from './routes/console.events.index'
 import { Route as ConsoleEventsIdRouteImport } from './routes/console.events.$id'
@@ -215,11 +214,6 @@ const PortalProfileRoute = PortalProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => PortalRoute,
 } as any)
-const PortalTeamRoute = PortalTeamRouteImport.update({
-  id: '/team',
-  path: '/team',
-  getParentRoute: () => PortalRoute,
-} as any)
 const ResultsIdRoute = ResultsIdRouteImport.update({
   id: '/results/$id',
   path: '/results/$id',
@@ -277,7 +271,6 @@ export interface FileRoutesByFullPath {
   '/portal/orders': typeof PortalOrdersRoute
   '/portal/performance': typeof PortalPerformanceRoute
   '/portal/profile': typeof PortalProfileRoute
-  '/portal/team': typeof PortalTeamRoute
   '/results/$id': typeof ResultsIdRoute
   '/console/': typeof ConsoleIndexRoute
   '/portal/': typeof PortalIndexRoute
@@ -315,7 +308,6 @@ export interface FileRoutesByTo {
   '/portal/orders': typeof PortalOrdersRoute
   '/portal/performance': typeof PortalPerformanceRoute
   '/portal/profile': typeof PortalProfileRoute
-  '/portal/team': typeof PortalTeamRoute
   '/results/$id': typeof ResultsIdRoute
   '/console': typeof ConsoleIndexRoute
   '/portal': typeof PortalIndexRoute
@@ -357,7 +349,6 @@ export interface FileRoutesById {
   '/portal/orders': typeof PortalOrdersRoute
   '/portal/performance': typeof PortalPerformanceRoute
   '/portal/profile': typeof PortalProfileRoute
-  '/portal/team': typeof PortalTeamRoute
   '/results/$id': typeof ResultsIdRoute
   '/console/': typeof ConsoleIndexRoute
   '/portal/': typeof PortalIndexRoute
@@ -399,7 +390,6 @@ export interface FileRouteTypes {
     | '/portal/orders'
     | '/portal/performance'
     | '/portal/profile'
-    | '/portal/team'
     | '/results/$id'
     | '/console/'
     | '/portal/'
@@ -437,7 +427,6 @@ export interface FileRouteTypes {
     | '/portal/orders'
     | '/portal/performance'
     | '/portal/profile'
-    | '/portal/team'
     | '/results/$id'
     | '/console'
     | '/portal'
@@ -478,7 +467,6 @@ export interface FileRouteTypes {
     | '/portal/orders'
     | '/portal/performance'
     | '/portal/profile'
-    | '/portal/team'
     | '/results/$id'
     | '/console/'
     | '/portal/'
@@ -738,13 +726,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalProfileRouteImport
       parentRoute: typeof PortalRoute
     }
-    '/portal/team': {
-      id: '/portal/team'
-      path: '/team'
-      fullPath: '/portal/team'
-      preLoaderRoute: typeof PortalTeamRouteImport
-      parentRoute: typeof PortalRoute
-    }
     '/results/$id': {
       id: '/results/$id'
       path: '/results/$id'
@@ -843,7 +824,6 @@ interface PortalRouteChildren {
   PortalOrdersRoute: typeof PortalOrdersRoute
   PortalPerformanceRoute: typeof PortalPerformanceRoute
   PortalProfileRoute: typeof PortalProfileRoute
-  PortalTeamRoute: typeof PortalTeamRoute
   PortalIndexRoute: typeof PortalIndexRoute
   PortalEventsIdRoute: typeof PortalEventsIdRoute
 }
@@ -853,7 +833,6 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalOrdersRoute: PortalOrdersRoute,
   PortalPerformanceRoute: PortalPerformanceRoute,
   PortalProfileRoute: PortalProfileRoute,
-  PortalTeamRoute: PortalTeamRoute,
   PortalIndexRoute: PortalIndexRoute,
   PortalEventsIdRoute: PortalEventsIdRoute,
 }

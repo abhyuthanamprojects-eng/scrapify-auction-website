@@ -15,7 +15,6 @@ function PortalLayout() {
   const VENDOR_NAV = [
     { to: "/portal", label: "My Invitations & Bids", exact: true },
     { to: "/portal/orders", label: "My Orders & Gate Passes" },
-    { to: "/portal/team", label: "My Team" },
     { to: "/portal/documents", label: "My Documents" },
     { to: "/portal/performance", label: "My Scorecard" },
     { to: "/portal/profile", label: "My Profile" },
