@@ -247,8 +247,8 @@ function AuthPage() {
                 onChange={setFullName}
                 required
               />
-              <Field label="Mobile" type="tel" value={phone} onChange={setPhone} required />
-              <Field label="Email" type="email" value={email} onChange={setEmail} required />
+              <Field label="Mobile" type="tel" value={phone} onChange={setPhone} required maxLength={13} inputMode="tel" />
+              <Field label="Email" type="email" value={email} onChange={setEmail} required maxLength={254} inputMode="email" />
               <Field label="Password" type="password" value={password} onChange={setPassword} required minLength={8} />
               </>
             ) : (
@@ -258,7 +258,7 @@ function AuthPage() {
                     <button key={method} type="button" onClick={() => setLoginMethod(method)} className={`rounded-lg border px-3 py-2 text-sm font-semibold capitalize ${loginMethod === method ? "border-[color:var(--auction)] bg-[color:var(--auction)]/10" : "border-white/10"}`}>{method}</button>
                   ))}
                 </div>
-                <Field label={loginMethod === "email" ? "Email" : "Mobile"} type={loginMethod === "email" ? "email" : "tel"} value={loginMethod === "email" ? email : phone} onChange={loginMethod === "email" ? setEmail : setPhone} required />
+                <Field label={loginMethod === "email" ? "Email" : "Mobile"} type={loginMethod === "email" ? "email" : "tel"} value={loginMethod === "email" ? email : phone} onChange={loginMethod === "email" ? setEmail : setPhone} required maxLength={loginMethod === "email" ? 254 : 13} inputMode={loginMethod === "email" ? "email" : "tel"} />
                 <p className="text-xs text-white/50">We’ll send a one-time code to the selected email or mobile number.</p>
               </>
             )}
@@ -325,6 +325,8 @@ function Field({
   onChange,
   required,
   minLength,
+  maxLength,
+  inputMode,
 }: {
   label: string;
   type: string;
@@ -332,6 +334,8 @@ function Field({
   onChange: (v: string) => void;
   required?: boolean;
   minLength?: number;
+  maxLength?: number;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
 }) {
   return (
     <label className="block">
@@ -344,6 +348,8 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         required={required}
         minLength={minLength}
+        maxLength={maxLength}
+        inputMode={inputMode}
         className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-[color:var(--auction)]"
       />
     </label>
