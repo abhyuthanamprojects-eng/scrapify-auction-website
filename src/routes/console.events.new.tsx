@@ -336,6 +336,7 @@ function CreateEventWizard() {
         },
         location: facility,
         category,
+        ...(selectedCategoryId ? { category_id: selectedCategoryId } : {}),
         material_type: purpose,
         direction,
         lot_type: "lot_wise",
