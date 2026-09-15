@@ -18,6 +18,7 @@ import {
   Gavel,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { getLot, formatINR, timeLeft, type Lot } from "@/lib/auction-data";
 import { useTick } from "@/hooks/use-tick";
 import { useRegistration } from "@/hooks/use-registration";
@@ -80,14 +81,18 @@ export const Route = createFileRoute("/lots/$id")({
           <ArrowLeft className="h-4 w-4" /> Back to marketplace
         </Link>
       </div>
+      <SiteFooter />
     </div>
   ),
   errorComponent: ({ error, reset }) => (
-    <div className="min-h-screen bg-background p-12 text-center">
-      <p className="text-destructive">{error.message}</p>
-      <button onClick={reset} className="mt-4 underline">
-        Retry
-      </button>
+    <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex-1 p-12 text-center">
+        <p className="text-destructive">{error.message}</p>
+        <button onClick={reset} className="mt-4 underline">
+          Retry
+        </button>
+      </div>
+      <SiteFooter />
     </div>
   ),
 });
@@ -507,6 +512,7 @@ function LotDetail() {
           )}
         </aside>
       </div>
+      <SiteFooter />
     </div>
   );
 }

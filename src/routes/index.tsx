@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { ShieldCheck, Gavel, Truck, Scale, TrendingUp, Factory, Search, X, MapPin, Clock } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { LotCard } from "@/components/lot-card";
 import { formatINR, getAuctions, getCategories, type Lot } from "@/lib/auction-data";
 import heroImg from "@/assets/hero-scrapyard.jpg";
@@ -278,19 +279,7 @@ function Marketplace() {
         </div>
       </section>
 
-      <footer className="border-t border-border bg-[color:var(--navy)] text-white/70">
-        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-4 px-4 py-8 text-sm sm:flex-row sm:items-center sm:px-6">
-          <div className="font-display text-white">
-            © {new Date().getFullYear()} Scrapify Auction
-          </div>
-          <div className="flex gap-6">
-            <Link to="/terms" className="hover:text-white">Terms</Link>
-            <Link to="/privacy" className="hover:text-white">Privacy</Link>
-            <Link to="/refund" className="hover:text-white">Refunds</Link>
-            <Link to="/help" className="hover:text-white">Help &amp; Support</Link>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
       {detailsLot && (
         <CatalogueDrawer lot={detailsLot} onClose={() => setDetailsLot(null)} />
       )}

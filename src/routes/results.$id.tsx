@@ -10,6 +10,7 @@ import {
   CircleDollarSign,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { getLot, formatINR, type Lot } from "@/lib/auction-data";
 import { useFlow } from "@/hooks/use-flow";
 import { api } from "@/lib/api-client";
@@ -57,6 +58,7 @@ export const Route = createFileRoute("/results/$id")({
           Back to marketplace
         </Link>
       </div>
+      <SiteFooter />
     </div>
   ),
 });
@@ -295,6 +297,7 @@ function ResultPage() {
           </section>
         )}
       </div>
+      <SiteFooter />
     </div>
   );
 }

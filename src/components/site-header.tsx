@@ -2,6 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Search, Bell, LogOut, LayoutDashboard, Wallet, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { LEGAL_LINKS } from "@/components/site-footer";
 import { api } from "@/lib/api-client";
 
 export function SiteHeader() {
@@ -113,7 +114,20 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          {!user && <><Link to="/terms" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10">Terms</Link><Link to="/privacy" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10">Privacy</Link><Link to="/help" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10">Help &amp; Support</Link></>}
+          {/* Policies stay reachable once signed in too — this menu is the only
+              route to them on pages that carry no footer. */}
+          <div className="mt-2 border-t border-white/10 pt-2">
+            {LEGAL_LINKS.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                onClick={() => setMenuOpen(false)}
+                className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
         </nav>
       )}
     </header>
