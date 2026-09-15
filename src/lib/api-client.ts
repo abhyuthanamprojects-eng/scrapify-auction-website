@@ -452,6 +452,14 @@ class ScrapifyApiClient {
     return this.request<any>(`/auctions/${code}/terms/accept`, { method: "POST" });
   }
 
+  async getTermsConditions(categoryId?: number, role = "buyer") {
+    const params = new URLSearchParams({ role });
+    const path = categoryId
+      ? `/categories/${categoryId}/terms-conditions?${params}`
+      : `/terms-conditions?${params}`;
+    return this.request<any>(path);
+  }
+
   async lockEmd(code: string, lot?: string) {
     return this.request<any>("/emd/lock", {
       method: "POST",

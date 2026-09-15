@@ -260,20 +260,34 @@ function BidderRoom() {
 
         {tab === "terms" && (
           <>
-            <Card title="Terms & conditions" desc="Acceptance is recorded against your submission.">
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                {event.terms.length ? (
-                  event.terms.map((t) => (
+            {(event.termsConditions ?? []).length > 0 && (
+              <div className="space-y-3">
+                {(event.termsConditions as any[]).map((tnc: any) => (
+                  <Card key={tnc.id} title={tnc.title} desc={tnc.type?.charAt(0).toUpperCase() + tnc.type?.slice(1)}>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{tnc.content}</p>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {event.terms.length > 0 && (
+              <Card title="Additional terms" desc="Auction-specific terms set by the seller.">
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  {event.terms.map((t) => (
                     <li key={t} className="flex gap-2">
                       <span className="text-[color:var(--auction)]">•</span>
                       {t}
                     </li>
-                  ))
-                ) : (
-                  <li>No special terms published for this event.</li>
-                )}
-              </ul>
-            </Card>
+                  ))}
+                </ul>
+              </Card>
+            )}
+
+            {(event.termsConditions ?? []).length === 0 && event.terms.length === 0 && (
+              <Card title="Terms & conditions" desc="Acceptance is recorded against your submission.">
+                <p className="text-sm text-muted-foreground">No terms published for this event.</p>
+              </Card>
+            )}
             <Card title="Money & settlement basis" desc="Indicative on your last submission.">
               {(() => {
                 const s = settlement(myBest?.amount ?? event.baseline, event.emdRequired ? event.emdAmount : 0);

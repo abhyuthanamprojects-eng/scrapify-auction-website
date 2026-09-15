@@ -102,6 +102,7 @@ export function toAuctionEvent(row: Record<string, any>): AuctionEvent {
     })),
     approvals: [],
     terms: typeof row.terms === 'string' ? row.terms.split(/\r?\n/).filter(Boolean) : [],
+    termsConditions: Array.isArray(row.terms_conditions) ? row.terms_conditions : [],
     audit: [],
   };
 }
