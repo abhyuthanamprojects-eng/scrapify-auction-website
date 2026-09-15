@@ -939,6 +939,7 @@ function Step3({
   const [gstAddressAutofilled, setGstAddressAutofilled] = useState(false);
   const gstDebounce = useRef<number | undefined>(undefined);
   const gstRequestId = useRef(0);
+  const gstLookupValue = useRef<string | null>(null);
   const [bankLookup, setBankLookup] = useState<Record<string, any> | null>(null);
   const [bankLoading, setBankLoading] = useState(false);
   const [bankError, setBankError] = useState<string | null>(null);
@@ -973,12 +974,18 @@ function Step3({
     setGstError(null);
     setGstAddressAutofilled(false);
     if (!isGstin(gstin)) {
+      gstLookupValue.current = null;
       setGstLoading(false);
       return;
     }
+    // Avoid duplicate provider calls when a controlled input emits the same
+    // complete value more than once during hydration or browser autofill.
+    if (gstLookupValue.current === gstin) return;
 
     setGstLoading(true);
     gstDebounce.current = window.setTimeout(async () => {
+      if (gstLookupValue.current === gstin) return;
+      gstLookupValue.current = gstin;
       try {
         const response = await api.verifyGstin(gstin);
         const details = response?.data ?? response;
@@ -1004,7 +1011,14 @@ function Step3({
       } catch (cause) {
         if (requestId !== gstRequestId.current) return;
         setGstLookup(null);
-        setGstError(cause instanceof Error ? cause.message : "GSTIN verification failed.");
+        const error = cause as Error & { status?: number };
+        setGstError(
+          error.status === 429
+            ? "GST verification is temporarily rate-limited. Please wait a moment and try again."
+            : error instanceof Error
+              ? error.message
+              : "GSTIN verification failed.",
+        );
       } finally {
         if (requestId === gstRequestId.current) setGstLoading(false);
       }
