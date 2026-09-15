@@ -15,9 +15,11 @@ import { Route as AccessDeniedRouteImport } from './routes/access-denied'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ConsoleRouteImport } from './routes/console'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as HelpRouteImport } from './routes/help'
 import { Route as MyBidsRouteImport } from './routes/my-bids'
 import { Route as PortalRouteImport } from './routes/portal'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as RefundRouteImport } from './routes/refund'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthenticatedBusinessVerificationRouteImport } from './routes/_authenticated/business-verification'
@@ -78,6 +80,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MyBidsRoute = MyBidsRouteImport.update({
   id: '/my-bids',
   path: '/my-bids',
@@ -91,6 +98,11 @@ const PortalRoute = PortalRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RefundRoute = RefundRouteImport.update({
+  id: '/refund',
+  path: '/refund',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -252,9 +264,11 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/console': typeof ConsoleRouteWithChildren
   '/contact': typeof ContactRoute
+  '/help': typeof HelpRoute
   '/my-bids': typeof MyBidsRoute
   '/portal': typeof PortalRouteWithChildren
   '/privacy': typeof PrivacyRoute
+  '/refund': typeof RefundRoute
   '/register': typeof RegisterRoute
   '/terms': typeof TermsRoute
   '/business-verification': typeof AuthenticatedBusinessVerificationRoute
@@ -291,8 +305,10 @@ export interface FileRoutesByTo {
   '/access-denied': typeof AccessDeniedRoute
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
+  '/help': typeof HelpRoute
   '/my-bids': typeof MyBidsRoute
   '/privacy': typeof PrivacyRoute
+  '/refund': typeof RefundRoute
   '/register': typeof RegisterRoute
   '/terms': typeof TermsRoute
   '/business-verification': typeof AuthenticatedBusinessVerificationRoute
@@ -332,9 +348,11 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/console': typeof ConsoleRouteWithChildren
   '/contact': typeof ContactRoute
+  '/help': typeof HelpRoute
   '/my-bids': typeof MyBidsRoute
   '/portal': typeof PortalRouteWithChildren
   '/privacy': typeof PrivacyRoute
+  '/refund': typeof RefundRoute
   '/register': typeof RegisterRoute
   '/terms': typeof TermsRoute
   '/_authenticated/business-verification': typeof AuthenticatedBusinessVerificationRoute
@@ -374,9 +392,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/console'
     | '/contact'
+    | '/help'
     | '/my-bids'
     | '/portal'
     | '/privacy'
+    | '/refund'
     | '/register'
     | '/terms'
     | '/business-verification'
@@ -413,8 +433,10 @@ export interface FileRouteTypes {
     | '/access-denied'
     | '/auth'
     | '/contact'
+    | '/help'
     | '/my-bids'
     | '/privacy'
+    | '/refund'
     | '/register'
     | '/terms'
     | '/business-verification'
@@ -453,9 +475,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/console'
     | '/contact'
+    | '/help'
     | '/my-bids'
     | '/portal'
     | '/privacy'
+    | '/refund'
     | '/register'
     | '/terms'
     | '/_authenticated/business-verification'
@@ -495,9 +519,11 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ConsoleRoute: typeof ConsoleRouteWithChildren
   ContactRoute: typeof ContactRoute
+  HelpRoute: typeof HelpRoute
   MyBidsRoute: typeof MyBidsRoute
   PortalRoute: typeof PortalRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
+  RefundRoute: typeof RefundRoute
   RegisterRoute: typeof RegisterRoute
   TermsRoute: typeof TermsRoute
   JoinTokenRoute: typeof JoinTokenRoute
@@ -550,6 +576,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/my-bids': {
       id: '/my-bids'
       path: '/my-bids'
@@ -569,6 +602,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/refund': {
+      id: '/refund'
+      path: '/refund'
+      fullPath: '/refund'
+      preLoaderRoute: typeof RefundRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -867,9 +907,11 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ConsoleRoute: ConsoleRouteWithChildren,
   ContactRoute: ContactRoute,
+  HelpRoute: HelpRoute,
   MyBidsRoute: MyBidsRoute,
   PortalRoute: PortalRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
+  RefundRoute: RefundRoute,
   RegisterRoute: RegisterRoute,
   TermsRoute: TermsRoute,
   JoinTokenRoute: JoinTokenRoute,

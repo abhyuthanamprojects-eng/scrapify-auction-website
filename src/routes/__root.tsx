@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { initBrowserSecurity, SecurityGate } from "@/lib/browser-security";
 import { supabase as supabaseImport } from "@/integrations/supabase/client";
 import { MobileTabBar } from "@/components/mobile-tabbar";
+import { useIsEmbedded } from "@/components/legal-page";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -151,14 +152,18 @@ function RootComponent() {
     return () => data.subscription.unsubscribe();
   }, [router, queryClient]);
 
+  const embedded = useIsEmbedded();
+
   return (
     <SecurityGate>
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <div className="pb-14 md:pb-0">
+      {/* `?embed=1` is the mobile app's in-app browser: the app supplies its
+          own navigation, so the site's tab bar would be a second one. */}
+      <div className={embedded ? undefined : "pb-14 md:pb-0"}>
         <Outlet />
       </div>
-      <MobileTabBar />
+      {!embedded && <MobileTabBar />}
       <Toaster />
     </QueryClientProvider>
     </SecurityGate>

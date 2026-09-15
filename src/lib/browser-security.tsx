@@ -26,6 +26,19 @@ export function assessBrowser(): SecurityAssessment {
   return { allowed: browser !== "Unsupported browser" && !phone, browser, device };
 }
 
+/**
+ * Legal and support pages stay reachable from any browser. App-store reviewers
+ * open the privacy and terms URLs — often on a phone — and the mobile app loads
+ * these same URLs in its in-app browser, so gating them would break both.
+ */
+const UNGATED_PATHS = ["/terms", "/privacy", "/refund", "/help", "/contact"];
+
+function isUngatedPath(): boolean {
+  if (typeof window === "undefined") return false;
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  return UNGATED_PATHS.includes(path);
+}
+
 export function SecurityGate({ children, admin = false }: { children: ReactNode; admin?: boolean }) {
   const [assessment, setAssessment] = useState<SecurityAssessment | null>(null);
 
@@ -36,6 +49,7 @@ export function SecurityGate({ children, admin = false }: { children: ReactNode;
   // Keep the SSR and first client render identical. This prevents a refresh
   // from briefly showing the unsupported-browser screen during hydration.
   if (!assessment) return <>{children}</>;
+  if (!admin && isUngatedPath()) return <>{children}</>;
 
   const blocked = !assessment.allowed || (admin && assessment.device !== "desktop" && assessment.device !== "tablet");
   if (!blocked) return <>{children}</>;

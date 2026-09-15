@@ -113,7 +113,7 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          {!user && <><Link to="/terms" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10">Terms</Link><Link to="/privacy" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10">Privacy</Link><Link to="/contact" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10">Contact</Link></>}
+          {!user && <><Link to="/terms" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10">Terms</Link><Link to="/privacy" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10">Privacy</Link><Link to="/help" onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10">Help &amp; Support</Link></>}
         </nav>
       )}
     </header>
