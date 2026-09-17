@@ -294,6 +294,28 @@ class ScrapifyApiClient {
     return this.request<any>("/kyb/reverify", { method: "POST" });
   }
 
+  async getIdentityVerificationStatus() {
+    return this.request<any>("/identity/digilocker/status");
+  }
+  async initiateDigiLocker(redirectUri: string) {
+    return this.request<any>("/identity/digilocker/initiate", {
+      method: "POST",
+      body: JSON.stringify({ redirect_uri: redirectUri }),
+    });
+  }
+  async handleDigiLockerCallback(state: string, code?: string, error?: string) {
+    return this.request<any>("/identity/digilocker/callback", {
+      method: "POST",
+      body: JSON.stringify({ state, code, error }),
+    });
+  }
+  async retryDigiLocker(redirectUri: string) {
+    return this.request<any>("/identity/digilocker/retry", {
+      method: "POST",
+      body: JSON.stringify({ redirect_uri: redirectUri }),
+    });
+  }
+
   async registerVendor(data: Record<string, unknown>) {
     return this.request<any>("/vendors/register", {
       method: "POST",
@@ -606,6 +628,30 @@ class ScrapifyApiClient {
   async getWalletTransactions(params: Record<string, any> = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request<any>(`/wallet/transactions${query ? `?${query}` : ""}`);
+  }
+
+  async createRazorpayOrder(amount: number, purpose: string, orderCode?: string) {
+    return this.request<any>("/payments/razorpay/create-order", {
+      method: "POST",
+      body: JSON.stringify({
+        amount,
+        purpose,
+        ...(orderCode ? { order_code: orderCode } : {}),
+      }),
+    });
+  }
+
+  async verifyRazorpayPayment(params: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+    purpose: string;
+    order_code?: string;
+  }) {
+    return this.request<any>("/payments/razorpay/verify", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
   }
 
   async getEmd(params: Record<string, any> = {}) {
