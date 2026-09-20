@@ -60,6 +60,33 @@ const isIfsc = (value: string) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(value.trim().toU
 const isBankAccount = (value: string) => /^\d{6,40}$/.test(value.trim());
 const OTP_LENGTH = 4;
 
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+  }
+}
+
+const RAZORPAY_SCRIPT_URL = "https://checkout.razorpay.com/v1/checkout.js";
+
+function loadRazorpayScript(): Promise<void> {
+  if (typeof window === "undefined") return Promise.reject(new Error("Payment is only available in a browser."));
+  if (window.Razorpay) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${RAZORPAY_SCRIPT_URL}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Failed to load Razorpay checkout.")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = RAZORPAY_SCRIPT_URL;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Razorpay checkout."));
+    document.body.appendChild(script);
+  });
+}
+
 const derivePanFromGstin = (gstin: string) => gstin.slice(2, 12).toUpperCase();
 
 const objectValue = (value: unknown, keys: string[]) => {
@@ -1015,7 +1042,6 @@ function Step3({
         if (details?.gstin_status !== "GSTIN_VERIFIED") {
           throw new Error(details?.last_error_code || "This GSTIN could not be verified.");
         }
-        const location = gstAddressLocation(details.gst_registered_address);
         const address = formatGstAddress(details.gst_registered_address);
         setF((previous) => ({
           ...previous,
@@ -1024,8 +1050,6 @@ function Step3({
           entityType: String(details.entity_type_label ?? details.entity_type ?? "").trim(),
           panNumber: derivePanFromGstin(String(details.gstin ?? gstin)),
           ...(address ? { registeredAddress: address } : {}),
-          ...(location.city ? { city: location.city } : {}),
-          ...(location.state ? { state: location.state } : {}),
         }));
         setGstLookup(details);
         setGstAddressAutofilled(Boolean(address));
@@ -1154,8 +1178,29 @@ function Step3({
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [materials, setMaterials] = useState<string[]>(state.materialInterest);
   const [terms, setTerms] = useState(state.termsAccepted);
+  const [registrationTerms, setRegistrationTerms] = useState<{ id: number; title: string; content: string }[]>([]);
+  const [termsLoading, setTermsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setTermsLoading(true);
+    api.getTermsConditions(undefined, state.role)
+      .then((response: any) => {
+        const rows = Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
+        if (active) {
+          setRegistrationTerms(rows.filter((item: any) => item?.content).map((item: any) => ({
+            id: Number(item.id),
+            title: String(item.title ?? "Terms & Conditions"),
+            content: String(item.content),
+          })));
+        }
+      })
+      .catch(() => { if (active) setRegistrationTerms([]); })
+      .finally(() => { if (active) setTermsLoading(false); });
+    return () => { active = false; };
+  }, [state.role]);
 
   const set = (k: keyof typeof f) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const toggleMaterial = (m: string) =>
@@ -1337,11 +1382,20 @@ function Step3({
           readOnly={gstAddressAutofilled}
         />
         <Field
+          label="PAN Number (from GSTIN)"
+          value={f.panNumber}
+          onChange={set("panNumber")}
+          disabled={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
+          readOnly={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
+          required
+        />
+        <Field
           label="PIN Code"
           value={f.pincode}
           onChange={onPincodeChange}
           maxLength={6}
           placeholder={pincodeLoading ? "Looking up…" : "6-digit PIN code"}
+          required
         />
         <Field
           label="City (from PIN API)"
@@ -1356,13 +1410,6 @@ function Step3({
           onChange={set("state")}
           disabled={pincodeLoading}
           readOnly
-        />
-        <Field
-          label="PAN Number (from GSTIN)"
-          value={f.panNumber}
-          onChange={set("panNumber")}
-          disabled={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
-          readOnly={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
         />
         <label className="block text-sm font-medium text-foreground">
           Annual Scrap Turnover <span className="text-[color:var(--auction)]">*</span>
@@ -1485,7 +1532,7 @@ function Step3({
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Bank details (for EMD refunds)
         </div>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
           <Field
             label="Account Number"
             value={f.bankAccount}
@@ -1543,21 +1590,14 @@ function Step3({
           Terms & Conditions
         </div>
         <div className="max-h-40 overflow-y-auto p-4 text-xs leading-relaxed text-muted-foreground">
-          <p>
-            By registering on Scrapify Auction, you agree to submit accurate KYC information and
-            comply with the platform's verification, payment, and fulfilment rules. Winning bids
-            create a binding contract with the seller.
-          </p>
-          <p className="mt-2">
-            EMD is refundable if you do not win. Non-lifting after a winning bid may result in EMD
-            forfeiture and account suspension. All disputes are subject to the jurisdiction of the
-            courts of Mumbai, India.
-          </p>
-          <p className="mt-2">
-            Scrapify may share your registration details with sellers and statutory authorities as
-            required. You confirm you are authorised to represent the named entity, and that all
-            uploaded documents are genuine.
-          </p>
+          {termsLoading ? <p>Loading the latest terms…</p> : registrationTerms.length === 0 ? (
+            <p>No active registration terms are configured. Please contact support.</p>
+          ) : registrationTerms.map((term) => (
+            <section key={term.id} className="mb-3 last:mb-0">
+              <h3 className="font-semibold text-foreground">{term.title}</h3>
+              <p className="mt-1 whitespace-pre-line">{term.content}</p>
+            </section>
+          ))}
         </div>
         <label className="flex items-center gap-2 border-t border-border px-4 py-3 text-sm">
           <input
@@ -1678,8 +1718,6 @@ function Step4({
             ? "pending"
             : "review",
   );
-  const [method, setMethod] = useState<RegistrationState["paymentMethod"]>(state.paymentMethod);
-  const [paymentReference, setPaymentReference] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [registrationFee, setRegistrationFee] = useState<number | null>(null);
@@ -1801,11 +1839,6 @@ function Step4({
   }
 
   if (phase === "payment") {
-    const options: { id: NonNullable<RegistrationState["paymentMethod"]>; blurb: string }[] = [
-      { id: "RTGS", blurb: "Real-time gross settlement, best for large transfers." },
-      { id: "NEFT", blurb: "Standard bank transfer, usually settles same day." },
-      { id: "UPI", blurb: "Instant UPI transfer via any UPI app." },
-    ];
     return (
       <FormShell
         title="Registration payment"
@@ -1815,24 +1848,9 @@ function Step4({
             : "A one-time registration fee activates your buyer account."
         }
       >
-        <div className="grid gap-3 sm:grid-cols-3">
-          {options.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => setMethod(o.id)}
-              className={`rounded-xl border p-4 text-left transition-colors ${
-                method === o.id
-                  ? "border-[color:var(--auction)] bg-[color:var(--auction)]/5"
-                  : "border-border bg-card hover:border-[color:var(--auction)]/50"
-              }`}
-            >
-              <div className="font-display text-lg font-extrabold text-[color:var(--navy)]">
-                {o.id}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">{o.blurb}</div>
-            </button>
-          ))}
+        <div className="rounded-xl border border-[color:var(--auction)] bg-[color:var(--auction)]/5 p-4">
+          <div className="font-display text-lg font-extrabold text-[color:var(--navy)]">Razorpay</div>
+          <p className="mt-1 text-sm text-muted-foreground">Pay securely by UPI, card, net banking or wallet in the Razorpay checkout.</p>
         </div>
 
         <div className="rounded-xl bg-muted p-4 text-sm text-foreground">
@@ -1869,12 +1887,6 @@ function Step4({
           {promoPricing?.discount_amount > 0 && <p className="text-xs font-semibold text-emerald-700">Discount applied: ₹{Number(promoPricing.discount_amount).toLocaleString("en-IN")}</p>}
         </div>
 
-        <Field
-          label="Payment reference / UTR"
-          value={paymentReference}
-          onChange={setPaymentReference}
-          placeholder="Enter bank or UPI reference"
-        />
         {error && <ErrorLine>{error}</ErrorLine>}
 
         <div className="flex items-center gap-3">
@@ -1883,17 +1895,45 @@ function Step4({
           </SecondaryButton>
           <PrimaryButton
             onClick={async () => {
-              if (!method || !paymentReference.trim() || !state.vendorCode) return;
+              if (!state.vendorCode || registrationFee == null) return;
               setBusy(true);
               setError(null);
               try {
-                await api.submitVendorPayment(state.vendorCode, {
-                  method,
-                  reference: paymentReference.trim(),
-                  ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}),
+                await loadRazorpayScript();
+                const payableAmount = Number(promoPricing?.payable_amount ?? registrationFee);
+                const orderResponse = await api.createRazorpayOrder(payableAmount, "registration", undefined, { vendor_code: state.vendorCode });
+                const order = orderResponse?.data ?? orderResponse;
+                await new Promise<void>((resolve, reject) => {
+                  if (!window.Razorpay) return reject(new Error("Razorpay checkout is unavailable."));
+                  const checkout = new window.Razorpay({
+                    key: order.key_id,
+                    amount: order.amount,
+                    currency: order.currency ?? "INR",
+                    name: "Scrapify Auctions",
+                    description: "Vendor registration fee",
+                    order_id: order.razorpay_order_id,
+                    prefill: order.prefill,
+                    handler: async (response: any) => {
+                      try {
+                        await api.verifyRazorpayPayment({
+                          razorpay_order_id: response.razorpay_order_id,
+                          razorpay_payment_id: response.razorpay_payment_id,
+                          razorpay_signature: response.razorpay_signature,
+                          purpose: "registration",
+                          vendor_code: state.vendorCode,
+                        });
+                        resolve();
+                      } catch (cause) {
+                        reject(cause);
+                      }
+                    },
+                    modal: { ondismiss: () => reject(new Error("Payment was cancelled.")) },
+                    theme: { color: "#ff6b2c" },
+                  });
+                  checkout.open();
                 });
                 update({
-                  paymentMethod: method,
+                  paymentMethod: "UPI",
                   paymentSubmitted: true,
                   vendorStatus: "pending",
                   statusReason: "",
@@ -1908,9 +1948,9 @@ function Step4({
                 setBusy(false);
               }
             }}
-            disabled={!method || !paymentReference.trim() || busy}
+            disabled={registrationFee == null || busy}
           >
-            {busy ? "Submitting…" : "Submit payment"}
+            {busy ? "Opening Razorpay…" : "Pay securely with Razorpay"}
           </PrimaryButton>
         </div>
       </FormShell>
@@ -2050,6 +2090,7 @@ function Field({
   disabled,
   maxLength,
   readOnly,
+  required,
 }: {
   label: string;
   value: string;
@@ -2059,11 +2100,12 @@ function Field({
   disabled?: boolean;
   maxLength?: number;
   readOnly?: boolean;
+  required?: boolean;
 }) {
   return (
     <label className="block">
       <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
+        {label}{required && <span className="ml-1 text-[color:var(--auction)]">*</span>}
       </span>
       <input
         type={type}
@@ -2072,6 +2114,7 @@ function Field({
         disabled={disabled}
         maxLength={maxLength}
         readOnly={readOnly}
+        required={required}
         onChange={(e) => onChange(e.target.value)}
         className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[color:var(--auction)] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
       />
