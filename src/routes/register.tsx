@@ -135,14 +135,11 @@ function RegisterWizard() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (state.paymentSubmitted || state.vendorStatus !== "none") {
-      clearRegistration();
-    }
     if (state.vendorCode && (state.mobileOtpVerified || state.emailOtpVerified)) {
-      api.getVendorKycStatus(state.vendorCode).catch(() => {
-        clearRegistration();
-        window.location.reload();
-      });
+      // A transient status request failure must not erase the wizard or reload
+      // the whole document. The authenticated session and locally saved form
+      // state are still valid and the pending screen polls safely below.
+      void api.getVendorKycStatus(state.vendorCode).catch(() => undefined);
     }
     setHydrated(true);
   }, []);
@@ -1980,13 +1977,12 @@ function Step4({
     return (
       <FormShell
         title="Submitted — pending admin review"
-        subtitle="Under review, usually within 24 hours. You'll be able to bid once an admin approves your KYC."
+        subtitle="Your profile is under review. Verification normally takes 24–48 hours because our team checks every submitted detail. Please be patient; our team will contact you if anything else is required."
       >
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
           <div className="font-display text-base font-bold text-amber-900">Status: Pending</div>
           <p className="mt-1 text-amber-900/80">
-            Bidding is <b>locked</b> until an admin approves your account. This banner will stay on
-            your profile until approval.
+            You are still logged in. You can browse the marketplace and open your profile while we review your application. Bidding, orders, and other protected actions unlock automatically after approval.
           </p>
         </div>
 

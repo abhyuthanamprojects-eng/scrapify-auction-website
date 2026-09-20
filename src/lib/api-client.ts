@@ -40,6 +40,8 @@ export function getAnonymousKey(): string {
 class ScrapifyApiClient {
   private token: string | null = null;
   private otpRequests = new Map<string, Promise<any>>();
+  private meRequest: Promise<any> | null = null;
+  private meCache: { token: string; expiresAt: number; value: any } | null = null;
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -48,6 +50,10 @@ class ScrapifyApiClient {
   }
 
   setToken(token: string | null) {
+    if (token !== this.token) {
+      this.meRequest = null;
+      this.meCache = null;
+    }
     this.token = token;
     if (typeof window !== "undefined") {
       if (token) {
@@ -184,7 +190,22 @@ class ScrapifyApiClient {
   }
 
   async me() {
-    return this.request<any>("/auth/me");
+    if (!this.token) return this.request<any>("/auth/me");
+    const now = Date.now();
+    if (this.meCache && this.meCache.token === this.token && this.meCache.expiresAt > now) {
+      return this.meCache.value;
+    }
+    if (this.meRequest) return this.meRequest;
+    const tokenAtStart = this.token;
+    this.meRequest = this.request<any>("/auth/me").then((value) => {
+      if (this.token === tokenAtStart) {
+        this.meCache = { token: tokenAtStart, expiresAt: Date.now() + 5000, value };
+      }
+      return value;
+    }).finally(() => {
+      this.meRequest = null;
+    });
+    return this.meRequest;
   }
 
   async googleSignIn(idToken: string, phone?: string, role?: string) {

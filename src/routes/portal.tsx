@@ -24,10 +24,6 @@ function PortalLayout() {
   const companyName = user?.vendor?.company_name || user?.organization?.name || user?.name || user?.email || "Vendor Workspace";
   const isVerified = user?.vendor?.status === "approved";
 
-  if (!isVerified) {
-    return <PendingReviewWorkspace companyName={companyName} />;
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-border bg-[color:var(--navy)] text-white shadow-md">
@@ -77,6 +73,7 @@ function PortalLayout() {
       </header>
 
       <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6">
+        {!isVerified && <PendingReviewWorkspace companyName={companyName} />}
         <Outlet />
       </main>
     </div>

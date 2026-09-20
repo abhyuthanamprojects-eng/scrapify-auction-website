@@ -41,6 +41,7 @@ const NAV = [
 export function ConsoleShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const { user } = useAuth();
+  const sellerPending = user?.vendor?.status !== "approved";
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<
@@ -167,13 +168,23 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
             </button>
 
             <div className="ml-auto flex items-center gap-2">
-              <Link
-                to="/console/events/new"
-                className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--auction)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:brightness-110 transition-all"
-              >
-                <Plus className="h-4 w-4" />
-                Create event
-              </Link>
+              {sellerPending ? (
+                <span
+                  title="Auction creation unlocks after profile approval"
+                  className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full bg-muted px-4 py-2 text-sm font-semibold text-muted-foreground"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Under review
+                </span>
+              ) : (
+                <Link
+                  to="/console/events/new"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--auction)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:brightness-110 transition-all"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create event
+                </Link>
+              )}
 
               {/* Notification Button */}
               <div className="relative">
@@ -268,6 +279,11 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
             </div>
           )}
 
+          {sellerPending && (
+            <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 sm:px-6">
+              <b>Your profile is under review.</b> Our team normally completes verification within 24–48 hours. You can browse your workspace, but auction creation and other protected actions remain locked until approval.
+            </div>
+          )}
           <main className="px-4 py-6 pb-24 sm:px-6 lg:pb-10">{children}</main>
 
           {/* Bottom Mobile Tab Bar */}
