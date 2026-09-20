@@ -1901,7 +1901,7 @@ function Step4({
               try {
                 await loadRazorpayScript();
                 const payableAmount = Number(promoPricing?.payable_amount ?? registrationFee);
-                const orderResponse = await api.createRazorpayOrder(payableAmount, "registration", undefined, { vendor_code: state.vendorCode });
+                const orderResponse = await api.createRazorpayOrder(payableAmount, "registration", undefined, { vendor_code: state.vendorCode }, promoCode);
                 const order = orderResponse?.data ?? orderResponse;
                 await new Promise<void>((resolve, reject) => {
                   if (!window.Razorpay) return reject(new Error("Razorpay checkout is unavailable."));
@@ -1921,6 +1921,7 @@ function Step4({
                           razorpay_signature: response.razorpay_signature,
                           purpose: "registration",
                           vendor_code: state.vendorCode,
+                          promo_code: promoCode.trim().toUpperCase() || undefined,
                         });
                         resolve();
                       } catch (cause) {

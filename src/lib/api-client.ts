@@ -658,7 +658,7 @@ class ScrapifyApiClient {
     return this.request<any>(`/wallet/transactions${query ? `?${query}` : ""}`);
   }
 
-  async createRazorpayOrder(amount: number, purpose: string, orderCode?: string, notes?: Record<string, string>) {
+  async createRazorpayOrder(amount: number, purpose: string, orderCode?: string, notes?: Record<string, string>, promoCode?: string) {
     return this.request<any>("/payments/razorpay/create-order", {
       method: "POST",
       body: JSON.stringify({
@@ -666,6 +666,7 @@ class ScrapifyApiClient {
         purpose,
         ...(orderCode ? { order_code: orderCode } : {}),
         ...(purpose === "registration" && notes?.vendor_code ? { vendor_code: notes.vendor_code } : {}),
+        ...(purpose === "registration" && promoCode ? { promo_code: promoCode.trim().toUpperCase() } : {}),
         ...(notes ? { notes } : {}),
       }),
     });
@@ -678,6 +679,7 @@ class ScrapifyApiClient {
     purpose: string;
     order_code?: string;
     vendor_code?: string;
+    promo_code?: string;
   }) {
     return this.request<any>("/payments/razorpay/verify", {
       method: "POST",
