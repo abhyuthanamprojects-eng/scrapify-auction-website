@@ -1723,6 +1723,7 @@ function Step4({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [registrationFee, setRegistrationFee] = useState<number | null>(null);
+  const [registrationFeeRequired, setRegistrationFeeRequired] = useState(true);
   const [promoCode, setPromoCode] = useState("");
   const [promoPricing, setPromoPricing] = useState<any>(null);
 
@@ -1758,7 +1759,10 @@ function Step4({
   useEffect(() => {
     api
       .getPlatformConfig()
-      .then((config) => setRegistrationFee(config.vendor_registration_fee))
+      .then((config) => {
+        setRegistrationFee(config.vendor_registration_fee);
+        setRegistrationFeeRequired(config.web_registration_fee_required !== false);
+      })
       .catch(() => setRegistrationFee(null));
   }, []);
 
@@ -1832,8 +1836,21 @@ function Step4({
           <SecondaryButton onClick={() => update({ step: 3 })}>
             <ChevronLeft className="h-4 w-4" /> Back
           </SecondaryButton>
-          <PrimaryButton onClick={() => setPhase("payment")}>
-            Proceed to Payment <ChevronRight className="h-4 w-4" />
+          <PrimaryButton
+            onClick={() => {
+              if (registrationFeeRequired) {
+                setPhase("payment");
+                return;
+              }
+              update({
+                paymentSubmitted: true,
+                vendorStatus: "pending",
+                completed: { ...state.completed, 4: true },
+              });
+              setPhase("pending");
+            }}
+          >
+            {registrationFeeRequired ? "Proceed to Payment" : "Submit for Review"} <ChevronRight className="h-4 w-4" />
           </PrimaryButton>
         </div>
       </FormShell>
