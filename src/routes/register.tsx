@@ -111,6 +111,12 @@ function RegisterWizard() {
     if (state.paymentSubmitted || state.vendorStatus !== "none") {
       clearRegistration();
     }
+    if (state.vendorCode && (state.mobileOtpVerified || state.emailOtpVerified)) {
+      api.getVendorKycStatus(state.vendorCode).catch(() => {
+        clearRegistration();
+        window.location.reload();
+      });
+    }
     setHydrated(true);
   }, []);
 
@@ -419,7 +425,11 @@ function Step1({
   return (
     <FormShell
       title="Verify your identity"
-      subtitle="Verify your mobile by SMS and your email independently. Both checks are required before registration."
+      subtitle={
+        mobileVerified && emailVerified
+          ? "Both checks are verified. Continue below — or start fresh if this is not your registration."
+          : "Verify your mobile by SMS and your email independently. Both checks are required before registration."
+      }
     >
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-4">
@@ -583,19 +593,31 @@ function Step1({
 
       {error && <ErrorLine>{error}</ErrorLine>}
       {mobileVerified && emailVerified && (
-        <PrimaryButton
-          onClick={() =>
-            update({
-              mobile,
-              email,
-              otpVerified: true,
-              completed: { ...state.completed, 1: true },
-              step: 2,
-            })
-          }
-        >
-          Continue to Login Details
-        </PrimaryButton>
+        <>
+          <PrimaryButton
+            onClick={() =>
+              update({
+                mobile,
+                email,
+                otpVerified: true,
+                completed: { ...state.completed, 1: true },
+                step: 2,
+              })
+            }
+          >
+            Continue to Login Details
+          </PrimaryButton>
+          <button
+            type="button"
+            onClick={() => {
+              clearRegistration();
+              window.location.reload();
+            }}
+            className="mt-2 text-xs text-muted-foreground underline hover:text-foreground"
+          >
+            Not you? Start a fresh registration
+          </button>
+        </>
       )}
       {!emailVerified && (
         <>
