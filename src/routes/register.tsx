@@ -1363,15 +1363,16 @@ function Step3({
           label="Company Name"
           value={f.companyName}
           onChange={set("companyName")}
-          disabled={gstLookup?.gstin_status === "GSTIN_VERIFIED" && Boolean(f.companyName)}
-          readOnly={gstLookup?.gstin_status === "GSTIN_VERIFIED" && Boolean(f.companyName)}
+          disabled
+          readOnly
+          placeholder="Filled from verified GSTIN"
         />
         <Field
           label="Detected Entity Type"
           value={f.entityType}
           onChange={set("entityType")}
-          disabled={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
-          readOnly={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
+          disabled
+          readOnly
           placeholder="Filled from verified GSTIN"
         />
         <Field
@@ -1385,8 +1386,9 @@ function Step3({
           label="PAN Number (from GSTIN)"
           value={f.panNumber}
           onChange={set("panNumber")}
-          disabled={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
-          readOnly={gstLookup?.gstin_status === "GSTIN_VERIFIED"}
+          disabled
+          readOnly
+          placeholder="Filled from verified GSTIN"
           required
         />
         <Field
