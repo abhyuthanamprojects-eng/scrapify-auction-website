@@ -60,7 +60,6 @@ export type RegistrationState = {
   licenseFile: string | null;
   termsAccepted: boolean;
   // Step 4
-  paymentMethod: "RTGS" | "NEFT" | "UPI" | null;
   paymentSubmitted: boolean;
   approved: boolean;
   vendorStatus: VendorStatus;
@@ -111,7 +110,6 @@ export const emptyRegistration = (): RegistrationState => ({
   chequeFile: null,
   licenseFile: null,
   termsAccepted: false,
-  paymentMethod: null,
   paymentSubmitted: false,
   approved: false,
   vendorStatus: "none",

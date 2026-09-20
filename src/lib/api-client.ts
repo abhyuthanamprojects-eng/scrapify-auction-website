@@ -330,13 +330,6 @@ class ScrapifyApiClient {
     });
   }
 
-  async submitVendorPayment(vendorCode: string, data: { method: string; reference: string; promo_code?: string }) {
-    return this.request<any>(`/vendors/${vendorCode}/registration-payment`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
   /* ---------------- Pincode Lookup ---------------- */
   async lookupPincode(pincode: string) {
     return this.request<{
@@ -672,6 +665,7 @@ class ScrapifyApiClient {
         amount,
         purpose,
         ...(orderCode ? { order_code: orderCode } : {}),
+        ...(purpose === "registration" && notes?.vendor_code ? { vendor_code: notes.vendor_code } : {}),
         ...(notes ? { notes } : {}),
       }),
     });

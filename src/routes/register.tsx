@@ -1850,7 +1850,7 @@ function Step4({
       >
         <div className="rounded-xl border border-[color:var(--auction)] bg-[color:var(--auction)]/5 p-4">
           <div className="font-display text-lg font-extrabold text-[color:var(--navy)]">Razorpay</div>
-          <p className="mt-1 text-sm text-muted-foreground">Pay securely by UPI, card, net banking or wallet in the Razorpay checkout.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Pay securely through Razorpay checkout.</p>
         </div>
 
         <div className="rounded-xl bg-muted p-4 text-sm text-foreground">
@@ -1933,7 +1933,6 @@ function Step4({
                   checkout.open();
                 });
                 update({
-                  paymentMethod: "UPI",
                   paymentSubmitted: true,
                   vendorStatus: "pending",
                   statusReason: "",
