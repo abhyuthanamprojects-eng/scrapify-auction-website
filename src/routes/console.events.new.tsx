@@ -16,6 +16,8 @@ import {
   XCircle,
   Copy,
   Info,
+  FileText,
+  RefreshCw,
 } from "lucide-react";
 import {
   CATEGORY_ATTRIBUTES,
@@ -42,7 +44,7 @@ export const Route = createFileRoute("/console/events/new")({
   // Sellers can create auctions but do not have vendor-directory permission.
   // Load the public category catalog only; invitations are an optional
   // follow-up action available to authorized staff.
-  loader: async () => [await api.getCategories(), { data: [] }],
+  loader: async () => [await api.getCategories(), { data: [] }, await api.me().catch(() => ({ user: null }))],
   component: CreateEventWizard,
 });
 
@@ -71,10 +73,12 @@ const STEPS = [
 
 function CreateEventWizard() {
   const navigate = useNavigate();
-  const [categoryResponse, vendorResponse] = Route.useLoaderData();
+  const [categoryResponse, vendorResponse, meResponse] = Route.useLoaderData();
   const categoryObjects: any[] = Array.isArray(categoryResponse?.data) ? categoryResponse.data : [];
   const categories = categoryObjects.map((c: any) => String(c.name ?? c));
   const vendors = Array.isArray(vendorResponse?.data) ? vendorResponse.data : [];
+  const vendorProfile = meResponse?.user?.vendor ?? meResponse?.data?.user?.vendor ?? null;
+  const vendorCompanyName = vendorProfile?.company_name ?? "";
   const [step, setStep] = useState(0);
 
   // Step 1: Purpose
@@ -109,8 +113,12 @@ function CreateEventWizard() {
   const [templateImportedLots, setTemplateImportedLots] = useState<Line[]>([]);
   const templateFileRef = useRef<HTMLInputElement>(null);
 
-  // Step 5: Documents
+  // Step 5: PDF Document uploads
   const [docs, setDocs] = useState<string[]>([]);
+  const [docFiles, setDocFiles] = useState<Record<string, { file: File; name: string; uploading: boolean; uploaded: boolean; error: string | null }>>({});
+  const catalogFileRef = useRef<HTMLInputElement>(null);
+  const tncFileRef = useRef<HTMLInputElement>(null);
+  const photographsFileRef = useRef<HTMLInputElement>(null);
   // Step 6: RFx
   const [enableRfx, setEnableRfx] = useState(true);
   // Step 7: Participants
@@ -161,6 +169,11 @@ function CreateEventWizard() {
   useEffect(() => {
     if (!category && categories[0]) setCategory(categories[0]);
   }, [category, categories]);
+
+  // Pre-fill company name from vendor profile
+  useEffect(() => {
+    if (vendorCompanyName && !bu) setBu(vendorCompanyName);
+  }, [vendorCompanyName]);
 
   const attrs = CATEGORY_ATTRIBUTES[category] ?? [];
 
@@ -267,6 +280,12 @@ function CreateEventWizard() {
           return "Add at least one lot with a description and quantity, or upload a template.";
         return null;
       }
+      case 4:
+        if (direction === "forward") {
+          if (!docFiles["catalog"]?.file || docFiles["catalog"]?.error) return "Auction Notice / Catalog PDF is required for forward auctions.";
+          if (!docFiles["photographs"]?.file || docFiles["photographs"]?.error) return "Photographs PDF is required for forward auctions.";
+        }
+        return null;
       case 7:
         if (!Number(baseline)) return "Please set a reserve / target baseline price.";
         if (!Number(increment)) return "Please set a bid increment.";
@@ -389,6 +408,37 @@ function CreateEventWizard() {
           throw new Error(
             uploadResult?.message || "Template validation failed. Fix errors and try again.",
           );
+        }
+      }
+
+      // Upload PDF documents (catalog, tnc, photographs)
+      const docTypes = ["catalog", "tnc", "photographs"] as const;
+      for (const docType of docTypes) {
+        const docState = docFiles[docType];
+        if (docState?.file && !docState.error && !docState.uploaded) {
+          setDocFiles((prev) => ({
+            ...prev,
+            [docType]: { ...prev[docType]!, uploading: true },
+          }));
+          try {
+            await api.uploadAuctionDocument(code, docType, docState.file);
+            setDocFiles((prev) => ({
+              ...prev,
+              [docType]: { ...prev[docType]!, uploading: false, uploaded: true },
+            }));
+          } catch (docErr) {
+            setDocFiles((prev) => ({
+              ...prev,
+              [docType]: {
+                ...prev[docType]!,
+                uploading: false,
+                error: docErr instanceof Error ? docErr.message : "Upload failed",
+              },
+            }));
+            throw new Error(
+              `Failed to upload ${docType} document: ${docErr instanceof Error ? docErr.message : "Upload failed"}`,
+            );
+          }
         }
       }
 
@@ -588,13 +638,20 @@ function CreateEventWizard() {
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground">
-                    Business Unit *
+                    Company / Business Unit *
                   </label>
                   <input
                     value={bu}
-                    onChange={(e) => setBu(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-border bg-background p-3 focus:outline-none"
+                    onChange={(e) => { if (!vendorCompanyName) setBu(e.target.value); }}
+                    readOnly={!!vendorCompanyName}
+                    disabled={!!vendorCompanyName}
+                    className={`mt-1 w-full rounded-xl border border-border p-3 focus:outline-none ${vendorCompanyName ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-background"}`}
                   />
+                  {vendorCompanyName && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Company name from your registered profile
+                    </p>
+                  )}
                 </div>
               </div>
               <div>
@@ -961,30 +1018,148 @@ function CreateEventWizard() {
 
         {step === 4 && (
           <Card
-            title="Step 5 — Tender Documents & Specifications"
-            desc="Attach specifications, drawings, contracts, and SLA policies"
+            title="Step 5 — Auction Documents"
+            desc="Upload required PDF documents for your auction"
           >
-            <div className="space-y-3">
-              <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border p-8 text-center bg-muted/20">
-                <UploadCloud className="h-10 w-10 text-muted-foreground mb-2" />
-                <span className="text-sm font-bold text-foreground">
-                  Drag & drop technical documents or BOQ
-                </span>
-                <span className="text-xs text-muted-foreground mt-1">
-                  PDF, Excel, Word up to 25MB each
-                </span>
-              </div>
-              <div className="space-y-2">
-                {docs.map((d, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded-lg bg-card border border-border p-2.5 text-xs"
-                  >
-                    <span className="font-semibold">{d}</span>
-                    <Pill tone="good">ATTACHED</Pill>
+            <div className="space-y-5">
+              {/* PDF Document Upload Slots */}
+              {([
+                { key: "catalog", label: "Auction Notice / Catalog", requiredForward: true },
+                { key: "tnc", label: "Terms & Conditions", requiredForward: false },
+                { key: "photographs", label: "Photographs", requiredForward: true },
+              ] as const).map((slot) => {
+                const isRequired = direction === "forward" && slot.requiredForward;
+                const docState = docFiles[slot.key];
+                const fileRef = slot.key === "catalog" ? catalogFileRef : slot.key === "tnc" ? tncFileRef : photographsFileRef;
+
+                return (
+                  <div key={slot.key} className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-[color:var(--navy)]" />
+                        <span className="text-sm font-bold text-foreground">{slot.label}</span>
+                        {isRequired ? (
+                          <span className="rounded-full bg-red-100 dark:bg-red-950/40 px-2 py-0.5 text-[10px] font-bold uppercase text-red-600 dark:text-red-400">Required</span>
+                        ) : (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">Optional</span>
+                        )}
+                      </div>
+                      {docState?.uploaded && (
+                        <Pill tone="good">UPLOADED</Pill>
+                      )}
+                    </div>
+
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+                          setDocFiles((prev) => ({
+                            ...prev,
+                            [slot.key]: { file, name: file.name, uploading: false, uploaded: false, error: "Only PDF files are accepted." },
+                          }));
+                          return;
+                        }
+                        setDocFiles((prev) => ({
+                          ...prev,
+                          [slot.key]: { file, name: file.name, uploading: false, uploaded: false, error: null },
+                        }));
+                      }}
+                    />
+
+                    {!docState || (!docState.uploaded && !docState.uploading) ? (
+                      <div className="space-y-2">
+                        {docState?.name && !docState.error ? (
+                          <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
+                            <div className="flex items-center gap-2 text-xs">
+                              <FileText className="h-4 w-4 text-[color:var(--navy)]" />
+                              <span className="font-semibold">{docState.name}</span>
+                              <span className="text-muted-foreground">
+                                ({(docState.file.size / 1024).toFixed(1)} KB)
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDocFiles((prev) => {
+                                  const next = { ...prev };
+                                  delete next[slot.key];
+                                  return next;
+                                });
+                                if (fileRef.current) fileRef.current.value = "";
+                              }}
+                              className="text-xs text-muted-foreground hover:text-destructive"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => fileRef.current?.click()}
+                            className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-5 text-center hover:bg-muted/30 transition-colors"
+                          >
+                            <UploadCloud className="h-6 w-6 text-muted-foreground mb-1" />
+                            <span className="text-xs font-semibold text-foreground">
+                              Click to select PDF file
+                            </span>
+                            <span className="text-[11px] text-muted-foreground mt-0.5">
+                              PDF only, up to 20MB
+                            </span>
+                          </button>
+                        )}
+                        {docState?.error && (
+                          <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 text-xs font-semibold text-destructive">
+                            <XCircle className="h-3.5 w-3.5 shrink-0" />
+                            {docState.error}
+                          </div>
+                        )}
+                      </div>
+                    ) : docState.uploading ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-xs text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading {docState.name}...
+                      </div>
+                    ) : docState.uploaded ? (
+                      <div className="flex items-center justify-between rounded-lg border border-[color:var(--success)]/30 bg-[color:var(--success)]/5 p-3">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-[color:var(--success)]">
+                          <CheckCircle2 className="h-4 w-4" />
+                          {docState.name}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDocFiles((prev) => {
+                              const next = { ...prev };
+                              delete next[slot.key];
+                              return next;
+                            });
+                            if (fileRef.current) fileRef.current.value = "";
+                          }}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Replace
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
-                ))}
+                );
+              })}
+
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-200">
+                <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  {direction === "forward"
+                    ? "For forward auctions, the Auction Notice/Catalog and Photographs documents are mandatory. Documents will be uploaded when the auction draft is created."
+                    : "All documents are optional for reverse auctions. Documents will be uploaded when the auction draft is created."}
+                </span>
               </div>
+
               <div className="border-t border-border pt-4">
                 <div className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Inspection and access</div>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -1274,8 +1449,16 @@ function CreateEventWizard() {
                   <strong className="text-foreground">{title}</strong>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-muted-foreground">Company:</span>
+                  <strong>{bu}</strong>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">Category:</span>
                   <strong>{category}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Direction:</span>
+                  <strong className="capitalize">{direction}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Commercial Baseline:</span>
@@ -1287,12 +1470,62 @@ function CreateEventWizard() {
                 </div>
               </div>
 
+              {/* Document Status Review */}
+              <div className="rounded-xl border border-border p-4 bg-card">
+                <div className="font-bold text-foreground mb-3">Auction Documents:</div>
+                <div className="space-y-2">
+                  {([
+                    { key: "catalog", label: "Auction Notice / Catalog", requiredForward: true },
+                    { key: "tnc", label: "Terms & Conditions", requiredForward: false },
+                    { key: "photographs", label: "Photographs", requiredForward: true },
+                  ] as const).map((slot) => {
+                    const isRequired = direction === "forward" && slot.requiredForward;
+                    const docState = docFiles[slot.key];
+                    const hasFile = docState?.file && !docState.error;
+                    const isMissing = isRequired && !hasFile;
+
+                    return (
+                      <div key={slot.key} className="flex items-center justify-between py-1.5">
+                        <span className="text-muted-foreground">
+                          {slot.label}
+                          {isRequired && <span className="text-red-500 ml-0.5">*</span>}
+                        </span>
+                        {hasFile ? (
+                          <span className="font-bold text-[color:var(--success)] flex items-center gap-1">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            {docState.uploaded ? "Uploaded" : "Ready to upload"}
+                          </span>
+                        ) : (
+                          <span className={`font-bold flex items-center gap-1 ${isMissing ? "text-red-500" : "text-muted-foreground"}`}>
+                            {isMissing ? (
+                              <><AlertTriangle className="h-3.5 w-3.5" /> Missing (required)</>
+                            ) : (
+                              "Not provided"
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {direction === "forward" && (
+                  !docFiles["catalog"]?.file || docFiles["catalog"]?.error || !docFiles["photographs"]?.file || docFiles["photographs"]?.error
+                ) && (
+                  <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-2.5 text-xs text-amber-800 dark:text-amber-200">
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>Required documents are missing. Go back to Step 5 to upload them before publishing.</span>
+                  </div>
+                )}
+              </div>
+
               <div className="rounded-xl border border-border p-4 bg-card">
                 <div className="font-bold text-foreground mb-2">Pre-Publish Validation:</div>
                 {checks.map((c, i) => (
                   <div key={i} className="flex items-center justify-between py-1">
                     <span className="text-muted-foreground">{c.label}</span>
-                    <span className="font-bold text-[color:var(--success)]">✓ Pass</span>
+                    <span className={`font-bold ${c.ok ? "text-[color:var(--success)]" : "text-red-500"}`}>
+                      {c.ok ? "Pass" : "Fail"}
+                    </span>
                   </div>
                 ))}
               </div>

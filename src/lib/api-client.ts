@@ -461,6 +461,41 @@ class ScrapifyApiClient {
     return this.request<any>(`/auctions/${auctionCode}/template-upload/${uploadId}`);
   }
 
+  /* ---------------- Auction Documents (PDF) ---------------- */
+  async uploadAuctionDocument(code: string, docType: string, file: File) {
+    const formData = new FormData();
+    formData.append("doc_type", docType);
+    formData.append("file", file);
+
+    const url = `${API_BASE_URL}/auctions/${code}/documents`;
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
+
+    const res = await fetch(url, { method: "POST", headers, body: formData });
+    if (!res.ok) {
+      if (res.status === 401) {
+        this.setToken(null);
+        if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("scrapify:auth"));
+        throw new Error("Session expired");
+      }
+      const json = await res.json();
+      throw new Error(json.message || "Document upload failed");
+    }
+    return res.json();
+  }
+
+  async getAuctionDocuments(code: string) {
+    return this.request<any>(`/auctions/${code}/documents`);
+  }
+
+  async downloadAuctionDocument(code: string, id: number) {
+    const response = await fetch(`${API_BASE_URL}/auctions/${code}/documents/${id}/download`, {
+      headers: this.token ? { Authorization: `Bearer ${this.token}` } : {},
+    });
+    if (!response.ok) throw new Error("Document download failed");
+    return response.blob();
+  }
+
   /* ---------------- Live Bidding ---------------- */
   async getLiveState(code: string) {
     return this.request<any>(`/auctions/${code}/live-state`);
