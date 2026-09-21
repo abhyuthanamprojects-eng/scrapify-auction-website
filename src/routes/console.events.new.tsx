@@ -130,6 +130,7 @@ function CreateEventWizard() {
   const [emdAmount, setEmdAmount] = useState("");
   const [startingPrice, setStartingPrice] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
+  const [sellerTerms, setSellerTerms] = useState("");
   const [liftingPeriod, setLiftingPeriod] = useState("7");
   const [liftingUnit, setLiftingUnit] = useState("Days");
   const [contactName, setContactName] = useState("");
@@ -373,6 +374,7 @@ function CreateEventWizard() {
         inspection_location: inspectionLocation || facility,
         guidelines_doc: guidelines || docs.join(", "),
         payment_terms: paymentTerms || undefined,
+        terms: sellerTerms || undefined,
         lifting_period: liftingPeriod || undefined,
         lifting_unit: liftingUnit,
         contact_name: contactName || undefined,
@@ -1302,6 +1304,11 @@ function CreateEventWizard() {
               <div>
                 <label className="text-xs font-semibold text-muted-foreground">Payment Terms</label>
                 <input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="100% before lifting" className="mt-1 w-full rounded-xl border border-border bg-background p-3" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs font-semibold text-muted-foreground">Seller-added auction terms</label>
+                <textarea value={sellerTerms} onChange={(e) => setSellerTerms(e.target.value)} placeholder="Add terms specific to this auction (optional)" className="mt-1 min-h-24 w-full rounded-xl border border-border bg-background p-3" />
+                <p className="mt-1 text-xs text-muted-foreground">Admin-published terms are added automatically from the selected category and shown with these seller terms.</p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-muted-foreground">Lifting Period</label>

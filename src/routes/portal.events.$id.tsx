@@ -262,6 +262,7 @@ function BidderRoom() {
           <>
             {(event.termsConditions ?? []).length > 0 && (
               <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Admin-published terms</h3>
                 {(event.termsConditions as any[]).map((tnc: any) => (
                   <Card key={tnc.id} title={tnc.title} desc={tnc.type?.charAt(0).toUpperCase() + tnc.type?.slice(1)}>
                     <p className="text-sm text-muted-foreground whitespace-pre-line">{tnc.content}</p>
@@ -271,7 +272,7 @@ function BidderRoom() {
             )}
 
             {event.terms.length > 0 && (
-              <Card title="Additional terms" desc="Auction-specific terms set by the seller.">
+              <Card title="Seller-added auction terms" desc="Auction-specific terms set by the seller.">
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   {event.terms.map((t) => (
                     <li key={t} className="flex gap-2">
