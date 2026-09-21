@@ -60,33 +60,6 @@ const isIfsc = (value: string) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(value.trim().toU
 const isBankAccount = (value: string) => /^\d{6,40}$/.test(value.trim());
 const OTP_LENGTH = 4;
 
-declare global {
-  interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
-  }
-}
-
-const RAZORPAY_SCRIPT_URL = "https://checkout.razorpay.com/v1/checkout.js";
-
-function loadRazorpayScript(): Promise<void> {
-  if (typeof window === "undefined") return Promise.reject(new Error("Payment is only available in a browser."));
-  if (window.Razorpay) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${RAZORPAY_SCRIPT_URL}"]`);
-    if (existing) {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("Failed to load Razorpay checkout.")), { once: true });
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = RAZORPAY_SCRIPT_URL;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Failed to load Razorpay checkout."));
-    document.body.appendChild(script);
-  });
-}
-
 const derivePanFromGstin = (gstin: string) => gstin.slice(2, 12).toUpperCase();
 
 const objectValue = (value: unknown, keys: string[]) => {
@@ -1734,6 +1707,10 @@ function Step4({
   const [registrationFeeRequired, setRegistrationFeeRequired] = useState(true);
   const [promoCode, setPromoCode] = useState("");
   const [promoPricing, setPromoPricing] = useState<any>(null);
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [transactionId, setTransactionId] = useState("");
+  const [bankDetails, setBankDetails] = useState<Record<string, string> | null>(null);
+  const [verificationReference, setVerificationReference] = useState("");
 
   useEffect(() => {
     if (phase !== "pending" || !api.getToken()) return;
@@ -1770,6 +1747,7 @@ function Step4({
       .then((config) => {
         setRegistrationFee(config.vendor_registration_fee);
         setRegistrationFeeRequired(config.web_registration_fee_required !== false);
+        setBankDetails((config as any).registration_bank_details ?? null);
       })
       .catch(() => setRegistrationFee(null));
   }, []);
@@ -1876,9 +1854,13 @@ function Step4({
         }
       >
         <div className="rounded-xl border border-[color:var(--auction)] bg-[color:var(--auction)]/5 p-4">
-          <div className="font-display text-lg font-extrabold text-[color:var(--navy)]">Razorpay</div>
-          <p className="mt-1 text-sm text-muted-foreground">Pay securely through Razorpay checkout.</p>
+          <div className="font-display text-lg font-extrabold text-[color:var(--navy)]">Bank transfer registration fee</div>
+          <p className="mt-1 text-sm text-muted-foreground">Transfer the amount below and upload a screenshot of the successful payment. Transaction ID is optional.</p>
         </div>
+
+        {bankDetails && <div className="grid gap-2 rounded-xl border border-border bg-card p-4 text-sm sm:grid-cols-2">
+          {[["Bank", bankDetails.bank_name], ["Account name", bankDetails.account_name], ["Account number", bankDetails.account_number], ["IFSC", bankDetails.ifsc], ["Branch", bankDetails.branch], ["Address", bankDetails.address]].map(([label, value]) => <div key={label}><span className="block text-xs font-semibold uppercase text-muted-foreground">{label}</span><span className="font-semibold text-foreground">{value}</span></div>)}
+        </div>}
 
         <div className="rounded-xl bg-muted p-4 text-sm text-foreground">
           Amount payable:{" "}
@@ -1914,6 +1896,11 @@ function Step4({
           {promoPricing?.discount_amount > 0 && <p className="text-xs font-semibold text-emerald-700">Discount applied: ₹{Number(promoPricing.discount_amount).toLocaleString("en-IN")}</p>}
         </div>
 
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Transaction ID (optional)" value={transactionId} onChange={setTransactionId} placeholder="Enter UTR/reference if available" />
+          <label className="block text-sm font-medium text-foreground">Payment screenshot / proof *<input type="file" accept="image/*,.pdf" onChange={(event) => setPaymentProof(event.target.files?.[0] ?? null)} className="mt-2 block w-full rounded-lg border border-border bg-background p-2 text-sm" /></label>
+        </div>
+
         {error && <ErrorLine>{error}</ErrorLine>}
 
         <div className="flex items-center gap-3">
@@ -1922,44 +1909,11 @@ function Step4({
           </SecondaryButton>
           <PrimaryButton
             onClick={async () => {
-              if (!state.vendorCode || registrationFee == null) return;
+              if (!state.vendorCode || registrationFee == null || !paymentProof) { setError("Please upload the successful payment screenshot before submitting."); return; }
               setBusy(true);
               setError(null);
               try {
-                await loadRazorpayScript();
-                const payableAmount = Number(promoPricing?.payable_amount ?? registrationFee);
-                const orderResponse = await api.createRazorpayOrder(payableAmount, "registration", undefined, { vendor_code: state.vendorCode }, promoCode);
-                const order = orderResponse?.data ?? orderResponse;
-                await new Promise<void>((resolve, reject) => {
-                  if (!window.Razorpay) return reject(new Error("Razorpay checkout is unavailable."));
-                  const checkout = new window.Razorpay({
-                    key: order.key_id,
-                    amount: order.amount,
-                    currency: order.currency ?? "INR",
-                    name: "Scrapify Auctions",
-                    description: "Vendor registration fee",
-                    order_id: order.razorpay_order_id,
-                    prefill: order.prefill,
-                    handler: async (response: any) => {
-                      try {
-                        await api.verifyRazorpayPayment({
-                          razorpay_order_id: response.razorpay_order_id,
-                          razorpay_payment_id: response.razorpay_payment_id,
-                          razorpay_signature: response.razorpay_signature,
-                          purpose: "registration",
-                          vendor_code: state.vendorCode,
-                          promo_code: promoCode.trim().toUpperCase() || undefined,
-                        });
-                        resolve();
-                      } catch (cause) {
-                        reject(cause);
-                      }
-                    },
-                    modal: { ondismiss: () => reject(new Error("Payment was cancelled.")) },
-                    theme: { color: "#ff6b2c" },
-                  });
-                  checkout.open();
-                });
+                await api.submitManualRegistrationPayment(state.vendorCode, paymentProof, transactionId, promoCode);
                 update({
                   paymentSubmitted: true,
                   vendorStatus: "pending",
@@ -1975,9 +1929,9 @@ function Step4({
                 setBusy(false);
               }
             }}
-            disabled={registrationFee == null || busy}
+            disabled={registrationFee == null || busy || !paymentProof}
           >
-            {busy ? "Opening Razorpay…" : "Pay securely with Razorpay"}
+            {busy ? "Submitting payment proof…" : "Submit payment proof"}
           </PrimaryButton>
         </div>
       </FormShell>
@@ -1995,6 +1949,14 @@ function Step4({
           <p className="mt-1 text-amber-900/80">
             You are still logged in. You can browse the marketplace and open your profile while we review your application. Bidding, orders, and other protected actions unlock automatically after approval.
           </p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="font-semibold text-foreground">Have you received a payment verification reference?</p>
+          <p className="mt-1 text-sm text-muted-foreground">Paste the reference from our email to confirm your payment.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <input value={verificationReference} onChange={(event) => setVerificationReference(event.target.value.toUpperCase())} placeholder="SCRAPIFY-PAY-XXXXXXXXXX" className="min-w-[260px] flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+            <SecondaryButton disabled={!state.vendorCode || !verificationReference.trim() || busy} onClick={async () => { setBusy(true); setError(null); try { await api.verifyRegistrationPaymentReference(state.vendorCode, verificationReference); update({ paymentSubmitted: true }); setError(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "Reference could not be verified."); } finally { setBusy(false); } }}>Verify payment</SecondaryButton>
+          </div>
         </div>
 
         <SecondaryButton onClick={() => navigate({ to: "/" })}>Back to marketplace</SecondaryButton>

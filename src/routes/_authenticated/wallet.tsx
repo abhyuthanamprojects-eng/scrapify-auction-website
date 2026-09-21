@@ -1,37 +1,11 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { Download, Wallet as WalletIcon, Lock, RefreshCcw, Plus, Loader2 } from "lucide-react";
+import { Download, Wallet as WalletIcon, Lock, RefreshCcw, Plus, Loader2, Upload } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { VendorStatusBanner } from "@/components/vendor-status-banner";
 import { api } from "@/lib/api-client";
 import { formatINR } from "@/lib/auction-data";
 import { EMD_LABEL } from "@/lib/customer-flow";
-import { useCallback, useEffect, useRef, useState } from "react";
-
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
-
-const RAZORPAY_SCRIPT_URL = "https://checkout.razorpay.com/v1/checkout.js";
-
-function loadRazorpayScript(): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
-  if (window.Razorpay) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${RAZORPAY_SCRIPT_URL}"]`);
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = RAZORPAY_SCRIPT_URL;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Failed to load Razorpay checkout script"));
-    document.head.appendChild(script);
-  });
-}
+import { useCallback, useRef, useState } from "react";
 
 const PRESET_AMOUNTS = [1000, 5000, 10000, 25000];
 
@@ -47,8 +21,7 @@ export const Route = createFileRoute("/_authenticated/wallet")({
       wallet: wallet.data ?? wallet,
       emdRows: Array.isArray(emd.data) ? emd.data : [],
       txns: Array.isArray(txns.data) ? txns.data : [],
-      razorpayEnabled: !!(config as any)?.razorpay_enabled,
-      razorpayKeyId: (config as any)?.razorpay_key_id ?? "",
+      bankDetails: (config as any)?.registration_bank_details ?? {},
     };
   },
   head: () => ({
@@ -70,12 +43,11 @@ export const Route = createFileRoute("/_authenticated/wallet")({
 });
 
 function WalletPage() {
-  const { wallet, emdRows, txns, razorpayEnabled } = Route.useLoaderData() as {
+  const { wallet, emdRows, txns, bankDetails } = Route.useLoaderData() as {
     wallet: Record<string, any>;
     emdRows: Record<string, any>[];
     txns: Record<string, any>[];
-    razorpayEnabled: boolean;
-    razorpayKeyId: string;
+    bankDetails: Record<string, string>;
   };
   const router = useRouter();
   const blocked = emdRows
@@ -101,14 +73,14 @@ function WalletPage() {
               Every EMD hold, release and refund mirrored from finance.
             </p>
           </div>
-          {razorpayEnabled && (
+          {
             <button
               onClick={() => setShowAddMoney(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-[color:var(--auction)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
             >
               <Plus className="h-4 w-4" /> Add Money
             </button>
-          )}
+          }
         </div>
 
         <div className="mt-8 grid gap-5 sm:grid-cols-3">
@@ -206,6 +178,7 @@ function WalletPage() {
 
       {showAddMoney && (
         <AddMoneyModal
+          bankDetails={bankDetails}
           onClose={() => setShowAddMoney(false)}
           onSuccess={() => {
             setShowAddMoney(false);
@@ -217,11 +190,13 @@ function WalletPage() {
   );
 }
 
-function AddMoneyModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+function AddMoneyModal({ bankDetails, onClose, onSuccess }: { bankDetails: Record<string, string>; onClose: () => void; onSuccess: () => void }) {
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [proof, setProof] = useState<File | null>(null);
+  const [transactionId, setTransactionId] = useState("");
   const backdropRef = useRef<HTMLDivElement>(null);
 
   const numericAmount = parseFloat(amount) || 0;
@@ -235,54 +210,16 @@ function AddMoneyModal({ onClose, onSuccess }: { onClose: () => void; onSuccess:
     setBusy(true);
 
     try {
-      await loadRazorpayScript();
-
-      const res = await api.createRazorpayOrder(numericAmount, "wallet_topup");
-      const order = res.data ?? res;
-
-      const options = {
-        key: order.key_id,
-        amount: order.amount,
-        currency: order.currency || "INR",
-        name: "Scrapify Auctions",
-        description: "Wallet Top-up",
-        order_id: order.razorpay_order_id,
-        prefill: order.prefill ?? {},
-        theme: { color: "#2563eb" },
-        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-          try {
-            const verify = await api.verifyRazorpayPayment({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              purpose: "wallet_topup",
-            });
-            const data = verify.data ?? verify;
-            setSuccess(`₹${data.amount_inr ?? numericAmount} added to wallet`);
-            setBusy(false);
-            setTimeout(() => onSuccess(), 1500);
-          } catch {
-            setError("Payment was received but verification failed. Contact support if balance is not updated.");
-            setBusy(false);
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            setBusy(false);
-          },
-          escape: true,
-          confirm_close: true,
-        },
-        "payment.failed": (resp: any) => {
-          const desc = resp?.error?.description || "Payment failed. Please try again.";
-          setError(desc);
-          setBusy(false);
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", options["payment.failed"]);
-      rzp.open();
+      if (!proof) throw new Error("Upload the bank-transfer proof first");
+      const form = new FormData();
+      form.append("purpose", "wallet_topup");
+      form.append("amount", String(numericAmount));
+      form.append("proof", proof);
+      if (transactionId.trim()) form.append("transaction_id", transactionId.trim());
+      await api.requestManualPayment(form);
+      setSuccess("Proof submitted. Wallet credit will be added after admin verification.");
+      setBusy(false);
+      setTimeout(() => onSuccess(), 1800);
     } catch (e: any) {
       setError(e?.message || "Could not initiate payment. Try again.");
       setBusy(false);
@@ -298,8 +235,14 @@ function AddMoneyModal({ onClose, onSuccess }: { onClose: () => void; onSuccess:
       <div className="w-full max-w-md rounded-2xl bg-background p-6 shadow-2xl">
         <h3 className="font-display text-xl font-bold text-foreground">Add Money to Wallet</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Choose an amount or enter a custom value. Payment is processed securely via Razorpay.
+          Transfer the amount to the bank account below and upload the payment proof. Admin verification is required.
         </p>
+        <div className="mt-4 rounded-lg border border-border bg-muted/50 p-3 text-sm">
+          <div className="font-semibold">{bankDetails.bank_name}</div>
+          <div>{bankDetails.account_name}</div>
+          <div>A/C: {bankDetails.account_number} · IFSC: {bankDetails.ifsc}</div>
+          <div>{bankDetails.branch}</div>
+        </div>
 
         <div className="mt-5">
           <label className="block text-sm font-medium text-foreground">Amount (₹)</label>
@@ -315,6 +258,9 @@ function AddMoneyModal({ onClose, onSuccess }: { onClose: () => void; onSuccess:
             autoFocus
           />
         </div>
+
+        <input className="mt-4 block w-full text-sm" type="file" accept="image/*,.pdf" onChange={(e) => setProof(e.target.files?.[0] ?? null)} disabled={busy} />
+        <input className="mt-3 w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm" placeholder="Transaction ID (optional)" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} disabled={busy} />
 
         <div className="mt-3 flex flex-wrap gap-2">
           {PRESET_AMOUNTS.map((preset) => (
@@ -350,7 +296,7 @@ function AddMoneyModal({ onClose, onSuccess }: { onClose: () => void; onSuccess:
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-[color:var(--auction)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <WalletIcon className="h-4 w-4" />}
-            {busy ? "Processing…" : `Pay ${numericAmount >= 1 ? formatINR(numericAmount) : ""}`}
+            {busy ? "Submitting…" : <><Upload className="h-4 w-4" /> Submit proof</>}
           </button>
         </div>
       </div>

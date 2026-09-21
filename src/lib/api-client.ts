@@ -395,6 +395,23 @@ class ScrapifyApiClient {
     });
   }
 
+  async submitManualRegistrationPayment(vendorCode: string, proof: File, transactionId?: string, promoCode?: string) {
+    const formData = new FormData();
+    formData.append("proof", proof);
+    if (transactionId?.trim()) formData.append("transaction_id", transactionId.trim());
+    if (promoCode?.trim()) formData.append("promo_code", promoCode.trim().toUpperCase());
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    const response = await fetch(`${API_BASE_URL}/vendors/${vendorCode}/registration-payment/manual`, { method: "POST", headers, body: formData });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.message || "Payment proof upload failed.");
+    return json;
+  }
+
+  async verifyRegistrationPaymentReference(vendorCode: string, reference: string) {
+    return this.request<any>(`/vendors/${vendorCode}/registration-payment/verify-reference`, { method: "POST", body: JSON.stringify({ verification_reference: reference.trim() }) });
+  }
+
   /* ---------------- Pincode Lookup ---------------- */
   async lookupPincode(pincode: string) {
     const key = pincode.trim();
@@ -741,43 +758,13 @@ class ScrapifyApiClient {
     return this.request<any>(`/wallet/transactions${query ? `?${query}` : ""}`);
   }
 
-  async createRazorpayOrder(
-    amount: number,
-    purpose: string,
-    orderCode?: string,
-    notes?: Record<string, string>,
-    promoCode?: string,
-  ) {
-    return this.request<any>("/payments/razorpay/create-order", {
-      method: "POST",
-      body: JSON.stringify({
-        amount,
-        purpose,
-        ...(orderCode ? { order_code: orderCode } : {}),
-        ...(purpose === "registration" && notes?.vendor_code
-          ? { vendor_code: notes.vendor_code }
-          : {}),
-        ...(purpose === "registration" && promoCode
-          ? { promo_code: promoCode.trim().toUpperCase() }
-          : {}),
-        ...(notes ? { notes } : {}),
-      }),
-    });
-  }
-
-  async verifyRazorpayPayment(params: {
-    razorpay_order_id: string;
-    razorpay_payment_id: string;
-    razorpay_signature: string;
-    purpose: string;
-    order_code?: string;
-    vendor_code?: string;
-    promo_code?: string;
-  }) {
-    return this.request<any>("/payments/razorpay/verify", {
-      method: "POST",
-      body: JSON.stringify(params),
-    });
+  async requestManualPayment(form: FormData) {
+    const headers: Record<string, string> = {};
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    const response = await fetch(`${API_BASE_URL}/payments/manual`, { method: "POST", headers, body: form });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(json.message || "Could not submit payment proof");
+    return json;
   }
 
   async getEmd(params: Record<string, any> = {}) {
