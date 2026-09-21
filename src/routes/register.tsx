@@ -1194,7 +1194,7 @@ function Step3({
   useEffect(() => {
     let active = true;
     setTermsLoading(true);
-    api.getTermsConditions(undefined, state.role)
+    api.getTermsConditions(undefined, state.role, "registration")
       .then((response: any) => {
         const rows = Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
         if (active) {

@@ -584,8 +584,9 @@ class ScrapifyApiClient {
     return this.request<any>(`/auctions/${code}/terms/accept`, { method: "POST" });
   }
 
-  async getTermsConditions(categoryId?: number, role = "buyer") {
+  async getTermsConditions(categoryId?: number, role = "buyer", type?: string) {
     const params = new URLSearchParams({ role });
+    if (type) params.set("type", type);
     const path = categoryId
       ? `/categories/${categoryId}/terms-conditions?${params}`
       : `/terms-conditions?${params}`;
