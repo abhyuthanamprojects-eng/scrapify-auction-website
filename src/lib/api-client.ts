@@ -40,6 +40,8 @@ export function getAnonymousKey(): string {
 class ScrapifyApiClient {
   private token: string | null = null;
   private otpRequests = new Map<string, Promise<any>>();
+  private pincodeRequests = new Map<string, Promise<any>>();
+  private ifscRequests = new Map<string, Promise<any>>();
   private meRequest: Promise<any> | null = null;
   private meCache: { token: string; expiresAt: number; value: any } | null = null;
 
@@ -85,43 +87,67 @@ class ScrapifyApiClient {
       headers["Authorization"] = `Bearer ${this.token}`;
     }
 
-    try {
-      const res = await fetch(url, {
-        ...options,
-        headers,
-      });
+    const method = (options.method || "GET").toUpperCase();
+    const retrySafe = method === "GET" || method === "HEAD";
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        const res = await fetch(url, {
+          ...options,
+          headers,
+        });
 
-      const responseText = await res.text();
-      let json: any = {};
-      if (responseText.trim()) {
-        try {
-          json = JSON.parse(responseText);
-        } catch {
-          json = { message: responseText };
+        const responseText = await res.text();
+        let json: any = {};
+        if (responseText.trim()) {
+          try {
+            json = JSON.parse(responseText);
+          } catch {
+            json = { message: responseText };
+          }
         }
-      }
-      if (!res.ok) {
-        if (res.status === 401) {
-          this.setToken(null);
-          if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("scrapify:auth"));
+        if (!res.ok) {
+          if (res.status === 401) {
+            this.setToken(null);
+            if (typeof window !== "undefined")
+              window.dispatchEvent(new CustomEvent("scrapify:auth"));
+          }
+          const error = new Error(
+            json.message || json.error?.message || `API Error: ${res.status}`,
+          ) as Error & {
+            status?: number;
+            code?: string;
+            retryAfter?: number;
+          };
+          error.status = res.status;
+          error.code = json.error?.code ?? json.code;
+          const retryAfter = Number(res.headers.get("Retry-After"));
+          if (Number.isFinite(retryAfter) && retryAfter > 0) error.retryAfter = retryAfter;
+          if (
+            retrySafe &&
+            (res.status === 408 || res.status === 425 || res.status === 429 || res.status >= 500) &&
+            attempt < 2
+          ) {
+            const serverRetryAfter = Number(res.headers.get("Retry-After"));
+            const serverDelay =
+              Number.isFinite(serverRetryAfter) && serverRetryAfter > 0
+                ? Math.min(serverRetryAfter * 1000, 10000)
+                : 0;
+            const exponentialDelay = 250 * 2 ** attempt;
+            await new Promise((resolve) =>
+              setTimeout(resolve, Math.max(serverDelay, exponentialDelay)),
+            );
+            continue;
+          }
+          throw error;
         }
-        const error = new Error(
-          json.message || json.error?.message || `API Error: ${res.status}`,
-        ) as Error & {
-          status?: number;
-          code?: string;
-          retryAfter?: number;
-        };
-        error.status = res.status;
-        error.code = json.error?.code ?? json.code;
-        const retryAfter = Number(res.headers.get("Retry-After"));
-        if (Number.isFinite(retryAfter) && retryAfter > 0) error.retryAfter = retryAfter;
-        throw error;
+        return json;
+      } catch (err) {
+        if ((err as Error & { status?: number }).status === 401) {
+          throw err;
+        }
+        console.warn(`[ScrapifyApiClient] Network request failed for ${endpoint}:`, err);
+        throw err;
       }
-      return json;
-    } catch (err) {
-      console.warn(`[ScrapifyApiClient] Network request failed for ${endpoint}:`, err);
-      throw err;
     }
   }
 
@@ -197,14 +223,16 @@ class ScrapifyApiClient {
     }
     if (this.meRequest) return this.meRequest;
     const tokenAtStart = this.token;
-    this.meRequest = this.request<any>("/auth/me").then((value) => {
-      if (this.token === tokenAtStart) {
-        this.meCache = { token: tokenAtStart, expiresAt: Date.now() + 5000, value };
-      }
-      return value;
-    }).finally(() => {
-      this.meRequest = null;
-    });
+    this.meRequest = this.request<any>("/auth/me")
+      .then((value) => {
+        if (this.token === tokenAtStart) {
+          this.meCache = { token: tokenAtStart, expiresAt: Date.now() + 5000, value };
+        }
+        return value;
+      })
+      .finally(() => {
+        this.meRequest = null;
+      });
     return this.meRequest;
   }
 
@@ -257,9 +285,12 @@ class ScrapifyApiClient {
   }
 
   async downloadVendorDocument(vendorCode: string, documentId: string | number) {
-    const response = await fetch(`${API_BASE_URL}/vendors/${vendorCode}/documents/${documentId}/download`, {
-      headers: this.token ? { Authorization: `Bearer ${this.token}` } : {},
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/vendors/${vendorCode}/documents/${documentId}/download`,
+      {
+        headers: this.token ? { Authorization: `Bearer ${this.token}` } : {},
+      },
+    );
     if (!response.ok) throw new Error("Document download failed");
     return response.blob();
   }
@@ -309,7 +340,20 @@ class ScrapifyApiClient {
     return this.request<any>("/kyb/bank/verify", { method: "POST", body: JSON.stringify(data) });
   }
   async lookupIfsc(ifsc: string) {
-    return this.request<any>(`/kyb/bank/ifsc/${encodeURIComponent(ifsc)}`);
+    const key = ifsc.trim().toUpperCase();
+    const existing = this.ifscRequests.get(key);
+    if (existing) return existing;
+    const request = this.request<any>(`/kyb/bank/ifsc/${encodeURIComponent(key)}`);
+    this.ifscRequests.set(key, request);
+    void request.then(
+      () => {
+        if (this.ifscRequests.get(key) === request) this.ifscRequests.delete(key);
+      },
+      () => {
+        if (this.ifscRequests.get(key) === request) this.ifscRequests.delete(key);
+      },
+    );
+    return request;
   }
   async requestBusinessReverification() {
     return this.request<any>("/kyb/reverify", { method: "POST" });
@@ -353,13 +397,26 @@ class ScrapifyApiClient {
 
   /* ---------------- Pincode Lookup ---------------- */
   async lookupPincode(pincode: string) {
-    return this.request<{
+    const key = pincode.trim();
+    const existing = this.pincodeRequests.get(key);
+    if (existing) return existing;
+    const request = this.request<{
       pincode: string;
       city: string;
       state: string;
       country: string;
       post_offices: Array<{ name: string; type: string; delivery: string }>;
-    }>(`/pincode/${pincode}`);
+    }>(`/pincode/${encodeURIComponent(key)}`);
+    this.pincodeRequests.set(key, request);
+    void request.then(
+      () => {
+        if (this.pincodeRequests.get(key) === request) this.pincodeRequests.delete(key);
+      },
+      () => {
+        if (this.pincodeRequests.get(key) === request) this.pincodeRequests.delete(key);
+      },
+    );
+    return request;
   }
 
   /* ---------------- Categories & Dynamic Attributes ---------------- */
@@ -437,7 +494,9 @@ class ScrapifyApiClient {
   /* ---------------- Auction Templates ---------------- */
   async getTemplateForCategory(categoryId: number | string, params: Record<string, any> = {}) {
     const query = new URLSearchParams(params).toString();
-    return this.request<any>(`/categories/${categoryId}/auction-template${query ? `?${query}` : ""}`);
+    return this.request<any>(
+      `/categories/${categoryId}/auction-template${query ? `?${query}` : ""}`,
+    );
   }
 
   getTemplateDownloadUrl(templateId: number | string): string {
@@ -468,7 +527,9 @@ class ScrapifyApiClient {
   }
 
   async confirmTemplateImport(auctionCode: string, uploadId: number | string) {
-    return this.request<any>(`/auctions/${auctionCode}/template-upload/${uploadId}/confirm`, { method: "POST" });
+    return this.request<any>(`/auctions/${auctionCode}/template-upload/${uploadId}/confirm`, {
+      method: "POST",
+    });
   }
 
   async getUploadResult(auctionCode: string, uploadId: number | string) {
@@ -679,15 +740,25 @@ class ScrapifyApiClient {
     return this.request<any>(`/wallet/transactions${query ? `?${query}` : ""}`);
   }
 
-  async createRazorpayOrder(amount: number, purpose: string, orderCode?: string, notes?: Record<string, string>, promoCode?: string) {
+  async createRazorpayOrder(
+    amount: number,
+    purpose: string,
+    orderCode?: string,
+    notes?: Record<string, string>,
+    promoCode?: string,
+  ) {
     return this.request<any>("/payments/razorpay/create-order", {
       method: "POST",
       body: JSON.stringify({
         amount,
         purpose,
         ...(orderCode ? { order_code: orderCode } : {}),
-        ...(purpose === "registration" && notes?.vendor_code ? { vendor_code: notes.vendor_code } : {}),
-        ...(purpose === "registration" && promoCode ? { promo_code: promoCode.trim().toUpperCase() } : {}),
+        ...(purpose === "registration" && notes?.vendor_code
+          ? { vendor_code: notes.vendor_code }
+          : {}),
+        ...(purpose === "registration" && promoCode
+          ? { promo_code: promoCode.trim().toUpperCase() }
+          : {}),
         ...(notes ? { notes } : {}),
       }),
     });

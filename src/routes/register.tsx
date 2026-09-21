@@ -113,6 +113,11 @@ const formatGstAddress = (value: unknown) => {
   return [...new Set(parts)].join(", ");
 };
 
+const gstAddressPincode = (value: unknown) =>
+  objectValue(value, ["pincode", "pin_code", "postal_code", "postalCode"])
+    .replace(/\D/g, "")
+    .slice(0, 6);
+
 const gstAddressLocation = (value: unknown) => ({
   city: objectValue(value, ["city", "city_name", "town", "district"]),
   state: objectValue(value, ["state", "state_name"]),
@@ -1040,6 +1045,9 @@ function Step3({
           throw new Error(details?.last_error_code || "This GSTIN could not be verified.");
         }
         const address = formatGstAddress(details.gst_registered_address);
+        const gstPincode =
+          gstAddressPincode(details.gst_registered_address) ||
+          gstAddressPincode(details);
         setF((previous) => ({
           ...previous,
           gstNumber: String(details.gstin ?? gstin).toUpperCase(),
@@ -1051,6 +1059,9 @@ function Step3({
         setGstLookup(details);
         setGstAddressAutofilled(Boolean(address));
         setGstError(null);
+        if (isIndianPincode(gstPincode)) {
+          void onPincodeChange(gstPincode);
+        }
       } catch (cause) {
         if (requestId !== gstRequestId.current) return;
         setGstLookup(null);
