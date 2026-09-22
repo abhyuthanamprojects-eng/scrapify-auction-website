@@ -34,8 +34,36 @@ export type Lot = {
 
 type ApiAuction = Record<string, unknown>;
 
-const imageFor = (category: string, photos: unknown): string => {
-  if (Array.isArray(photos) && typeof photos[0] === 'string') return photos[0];
+const apiOrigin = (import.meta.env.VITE_API_URL || 'https://api.scrapifyauctions.com/api/v1')
+  .replace(/\/api\/v1\/?$/, '');
+
+const resolvePhotoUrl = (value: unknown): string | null => {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const source = value.trim();
+  if (/^https?:\/\//i.test(source)) {
+    // Old seeded records may contain a local APP_URL. Resolve those records
+    // against the live API host so the public site and mobile app can render
+    // the same stored asset after a production deploy.
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(source)) {
+      const path = source.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i, '');
+      return `${apiOrigin}${path}`;
+    }
+    return source;
+  }
+  return `${apiOrigin}/${source.replace(/^\//, '')}`;
+};
+
+const imageFor = (category: string, photos: unknown, imageUrl?: unknown): string => {
+  const candidates = [imageUrl, ...(Array.isArray(photos) ? photos : [])];
+  for (const candidate of candidates) {
+    const value = typeof candidate === 'object' && candidate !== null
+      ? (candidate as Record<string, unknown>).url ??
+        (candidate as Record<string, unknown>).image_url ??
+        (candidate as Record<string, unknown>).path
+      : candidate;
+    const resolved = resolvePhotoUrl(value);
+    if (resolved) return resolved;
+  }
   const value = category.toLowerCase();
   if (value.includes('copper') || value.includes('non-ferrous')) return copperImg;
   if (value.includes('battery')) return batteriesImg;
@@ -78,7 +106,7 @@ export function toLot(row: ApiAuction): Lot {
     startsAt,
     endsAt,
     status: statusOf(row.status),
-    image: imageFor(category, row.photos),
+    image: imageFor(category, row.photos, row.image_url ?? row.cover_image_url ?? row.thumbnail_url),
     emd: numeric(row.emd_amount_inr),
     increment: numeric(row.bid_increment_inr),
     reserve: numeric(row.reserve_price_inr),
