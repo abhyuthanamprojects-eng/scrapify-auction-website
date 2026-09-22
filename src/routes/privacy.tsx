@@ -174,8 +174,9 @@ const SECTIONS: LegalSection[] = [
         </p>
         <p>
           <strong>Account deletion.</strong> You may request deletion of your account from the Platform
-          or by writing to us. On deletion we remove your profile and login credentials; transaction
-          records retained for statutory purposes are dissociated from your login where possible.
+          or by following the steps on our <a href="/account-deletion">Account Deletion</a> page. On
+          deletion we remove your profile and login credentials; transaction records retained for
+          statutory purposes are dissociated from your login where possible.
         </p>
       </>
     ),

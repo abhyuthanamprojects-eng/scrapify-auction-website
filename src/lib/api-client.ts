@@ -255,6 +255,17 @@ class ScrapifyApiClient {
     }
   }
 
+  async deletionCheck() {
+    return this.request<any>("/profile/deletion-check");
+  }
+
+  async deleteAccount() {
+    return this.request<any>("/profile", {
+      method: "DELETE",
+      body: JSON.stringify({ confirmation: "DELETE" }),
+    });
+  }
+
   /* ---------------- Vendor Documents & OCR ---------------- */
   async uploadVendorDocument(vendorCode: string, docKey: string, kind: string, file: File) {
     const formData = new FormData();

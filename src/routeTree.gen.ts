@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AccessDeniedRouteImport } from './routes/access-denied'
+import { Route as AccountDeletionRouteImport } from './routes/account-deletion'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ConsoleRouteImport } from './routes/console'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -63,6 +64,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AccessDeniedRoute = AccessDeniedRouteImport.update({
   id: '/access-denied',
   path: '/access-denied',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountDeletionRoute = AccountDeletionRouteImport.update({
+  id: '/account-deletion',
+  path: '/account-deletion',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -261,6 +267,7 @@ const PortalEventsIdRoute = PortalEventsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/access-denied': typeof AccessDeniedRoute
+  '/account-deletion': typeof AccountDeletionRoute
   '/auth': typeof AuthRoute
   '/console': typeof ConsoleRouteWithChildren
   '/contact': typeof ContactRoute
@@ -303,6 +310,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/access-denied': typeof AccessDeniedRoute
+  '/account-deletion': typeof AccountDeletionRoute
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/help': typeof HelpRoute
@@ -345,6 +353,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/access-denied': typeof AccessDeniedRoute
+  '/account-deletion': typeof AccountDeletionRoute
   '/auth': typeof AuthRoute
   '/console': typeof ConsoleRouteWithChildren
   '/contact': typeof ContactRoute
@@ -389,6 +398,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/access-denied'
+    | '/account-deletion'
     | '/auth'
     | '/console'
     | '/contact'
@@ -431,6 +441,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/access-denied'
+    | '/account-deletion'
     | '/auth'
     | '/contact'
     | '/help'
@@ -472,6 +483,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/access-denied'
+    | '/account-deletion'
     | '/auth'
     | '/console'
     | '/contact'
@@ -516,6 +528,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AccessDeniedRoute: typeof AccessDeniedRoute
+  AccountDeletionRoute: typeof AccountDeletionRoute
   AuthRoute: typeof AuthRoute
   ConsoleRoute: typeof ConsoleRouteWithChildren
   ContactRoute: typeof ContactRoute
@@ -553,6 +566,13 @@ declare module '@tanstack/react-router' {
       path: '/access-denied'
       fullPath: '/access-denied'
       preLoaderRoute: typeof AccessDeniedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account-deletion': {
+      id: '/account-deletion'
+      path: '/account-deletion'
+      fullPath: '/account-deletion'
+      preLoaderRoute: typeof AccountDeletionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -904,6 +924,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AccessDeniedRoute: AccessDeniedRoute,
+  AccountDeletionRoute: AccountDeletionRoute,
   AuthRoute: AuthRoute,
   ConsoleRoute: ConsoleRouteWithChildren,
   ContactRoute: ContactRoute,

@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   CircleDot,
   Pencil,
+  LoaderCircle,
 } from "lucide-react";
 import { useRegistration } from "@/hooks/use-registration";
 import { signInWithPopup } from "firebase/auth";
@@ -1316,13 +1317,17 @@ function Step3({
           onChange={onGstinChange}
           maxLength={15}
           placeholder="15-character GSTIN"
+          disabled={gstLoading}
         />
         <p className="mt-2 text-xs text-muted-foreground">
           Enter the GSTIN first. Scrapify verifies it through the active backend provider and fills
           the legal business details below.
         </p>
         {gstLoading && (
-          <p className="mt-2 text-xs font-medium text-[color:var(--auction)]">Verifying GSTIN…</p>
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-[color:var(--auction)]/25 bg-[color:var(--auction)]/5 px-3 py-2 text-xs font-medium text-[color:var(--auction)]">
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+            <span>Verifying GSTIN and loading company details. This can take a few seconds…</span>
+          </div>
         )}
         {gstLookup?.gstin_status === "GSTIN_VERIFIED" && (
           <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
@@ -1417,13 +1422,25 @@ function Step3({
           value={f.licenseNumber}
           onChange={set("licenseNumber")}
         />
-        <Field label="Contact Person Name" value={f.contactName} onChange={set("contactName")} />
+        <Field
+          label="Contact Person Name"
+          value={f.contactName}
+          onChange={set("contactName")}
+          required
+          error={f.contactName.trim() ? undefined : "Enter the authorised contact person name."}
+        />
         <Field
           label="Mobile Number (business)"
           value={f.contactMobile}
           onChange={set("contactMobile")}
           type="tel"
           maxLength={10}
+          required
+          error={
+            f.contactMobile.trim() && !isIndianMobile(f.contactMobile)
+              ? "Enter a valid 10-digit Indian mobile number."
+              : undefined
+          }
         />
         <div className="sm:col-span-2">
           <Field
@@ -1431,6 +1448,12 @@ function Step3({
             value={f.contactEmail}
             onChange={set("contactEmail")}
             type="email"
+            required
+            error={
+              f.contactEmail.trim() && !isEmail(f.contactEmail)
+                ? "Enter a valid business email address."
+                : undefined
+            }
           />
         </div>
       </div>
@@ -1522,12 +1545,14 @@ function Step3({
             onChange={(value) => onBankChange("bankAccount", value)}
             type="tel"
             maxLength={40}
+            disabled={bankLoading}
           />
           <Field
             label="IFSC Code"
             value={f.bankIfsc}
             onChange={(value) => onBankChange("bankIfsc", value)}
             maxLength={11}
+            disabled={bankLoading}
           />
           <Field label="Bank Name (from IFSC)" value={f.bankName} onChange={() => undefined} readOnly />
           <Field
@@ -1538,7 +1563,10 @@ function Step3({
           />
         </div>
         {bankLoading && (
-          <p className="mt-2 text-xs text-muted-foreground">Verifying bank account…</p>
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-[color:var(--auction)]/25 bg-[color:var(--auction)]/5 px-3 py-2 text-xs font-medium text-[color:var(--auction)]">
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+            <span>Checking bank and IFSC details. Please keep this page open…</span>
+          </div>
         )}
         {bankLookup?.bank_verification_status === "BANK_VERIFIED" && (
           <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700">
@@ -2079,6 +2107,7 @@ function Field({
   maxLength,
   readOnly,
   required,
+  error,
 }: {
   label: string;
   value: string;
@@ -2089,6 +2118,7 @@ function Field({
   maxLength?: number;
   readOnly?: boolean;
   required?: boolean;
+  error?: string;
 }) {
   return (
     <label className="block">
@@ -2104,8 +2134,9 @@ function Field({
         readOnly={readOnly}
         required={required}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[color:var(--auction)] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+        className={`mt-1 w-full rounded-lg border ${error ? "border-destructive" : "border-border"} bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[color:var(--auction)] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground`}
       />
+      {error && <span className="mt-1 block text-xs text-destructive">{error}</span>}
     </label>
   );
 }

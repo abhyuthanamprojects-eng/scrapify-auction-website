@@ -1,9 +1,11 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/site-header";
 import { useAuth } from "@/hooks/use-auth";
+import { requireRole } from "@/lib/route-guards";
 import { Factory, PackagePlus, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/seller")({
+  beforeLoad: ({ location }) => requireRole(location, ["seller"]),
   head: () => ({
     meta: [
       { title: "Seller console — Scrapify Auction" },

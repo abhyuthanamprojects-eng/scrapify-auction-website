@@ -6,9 +6,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-client";
 import { getAuctions, formatINR, type Lot } from "@/lib/auction-data";
 import { EMD_LABEL } from "@/lib/customer-flow";
+import { requireRole } from "@/lib/route-guards";
 import { Gavel, Wallet, ClipboardList, Heart } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
+  beforeLoad: ({ location }) => requireRole(location, ["buyer"]),
   loader: async () => {
     const [bids, emd, wallet, auctions] = await Promise.all([
       api.getMyBids().catch(() => ({ data: { active: [], won: [], lost: [] } })),

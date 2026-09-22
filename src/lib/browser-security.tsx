@@ -31,7 +31,7 @@ export function assessBrowser(): SecurityAssessment {
  * open the privacy and terms URLs — often on a phone — and the mobile app loads
  * these same URLs in its in-app browser, so gating them would break both.
  */
-const UNGATED_PATHS = ["/terms", "/privacy", "/refund", "/help", "/contact"];
+const UNGATED_PATHS = ["/terms", "/privacy", "/refund", "/help", "/contact", "/account-deletion"];
 
 function isUngatedPath(): boolean {
   if (typeof window === "undefined") return false;

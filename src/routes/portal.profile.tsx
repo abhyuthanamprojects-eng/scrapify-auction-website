@@ -15,6 +15,7 @@ import {
   CreditCard,
   Warehouse,
   Globe,
+  Trash2,
 } from "lucide-react";
 import { Card, PageHead, Pill } from "@/components/console/shell";
 import { api } from "@/lib/api-client";
@@ -47,6 +48,7 @@ function ProfilePage() {
   const [phone, setPhone] = useState(user?.phone || "");
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const [addresses, setAddresses] = useState<any[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
@@ -74,6 +76,28 @@ function ProfilePage() {
 
   const isVerified = vendor?.status === "approved";
   const kybStatus = user?.kyb_status || vendor?.status || "pending";
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    setErrorMsg("");
+    try {
+      const check = await api.deletionCheck();
+      const blockers = check?.blockers ?? check?.data?.blockers ?? [];
+      if (blockers.length > 0) {
+        setErrorMsg(`This account cannot be deleted yet: ${blockers.map((item: any) => item.message).join(" ")}`);
+        return;
+      }
+      if (window.prompt("To permanently delete your account, type DELETE:") !== "DELETE") return;
+      await api.deleteAccount();
+      await api.logout();
+      window.dispatchEvent(new CustomEvent("scrapify:auth"));
+      window.location.assign("/");
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Unable to delete your account. Please contact support.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -253,6 +277,18 @@ function ProfilePage() {
               ))}
             </div>
           )}
+        </div>
+      </Card>
+
+      <Card className="border-red-200 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="flex items-center gap-2 text-sm font-bold text-red-700"><Trash2 className="h-4 w-4" /> Delete account</h3>
+            <p className="mt-1 max-w-2xl text-xs text-muted-foreground">Permanently remove your Scrapify account and associated profile data. Open auctions, locked EMD, wallet balances, or legal/financial records may prevent immediate deletion.</p>
+          </div>
+          <button type="button" onClick={handleDeleteAccount} disabled={deleting} className="rounded-xl border border-red-300 px-4 py-2.5 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">
+            {deleting ? "Checking…" : "Delete account"}
+          </button>
         </div>
       </Card>
     </div>
