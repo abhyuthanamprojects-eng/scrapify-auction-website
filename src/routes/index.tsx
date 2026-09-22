@@ -37,11 +37,11 @@ export const Route = createFileRoute("/")({
   component: Marketplace,
 });
 
-type Segment = "live" | "upcoming" | "ended";
+type Segment = "all" | "live" | "upcoming" | "ended";
 
 function Marketplace() {
   const { lots, categories } = Route.useLoaderData();
-  const [segment, setSegment] = useState<Segment>("live");
+  const [segment, setSegment] = useState<Segment>("all");
   const [category, setCategory] = useState<string>("All");
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("All");
@@ -55,7 +55,7 @@ function Marketplace() {
   const filtered = useMemo(() => {
     return lots.filter(
       (l) =>
-        l.status === segment &&
+        (segment === "all" || l.status === segment) &&
         (category === "All" || l.category === category) &&
         (location === "All" || l.location === location) &&
         (query.trim() === "" ||
@@ -154,7 +154,7 @@ function Marketplace() {
             </p>
           </div>
           <div className="inline-flex rounded-full border border-border bg-card p-1">
-            {(["live", "upcoming", "ended"] as Segment[]).map((s) => (
+            {(["all", "live", "upcoming", "ended"] as Segment[]).map((s) => (
               <button
                 key={s}
                 onClick={() => setSegment(s)}
@@ -243,7 +243,7 @@ function Marketplace() {
           <div className="mt-16 rounded-2xl border border-dashed border-border bg-card p-12 text-center">
             <TrendingUp className="mx-auto h-8 w-8 text-muted-foreground" />
             <p className="mt-3 text-sm text-muted-foreground">
-              No {segment} auctions in this category right now.
+              No {segment === "all" ? "" : `${segment} `}auctions in this category right now.
             </p>
           </div>
         )}
