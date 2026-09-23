@@ -141,7 +141,7 @@ function RegisterWizard() {
           <Link to="/" className="flex items-center gap-2 font-display text-lg font-bold">
             <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg bg-white">
               <img
-                src="/scrapify-auction-app-icon.png"
+                src="/logo.svg"
                 alt="Scrapify Auctions"
                 className="h-full w-full object-contain"
               />

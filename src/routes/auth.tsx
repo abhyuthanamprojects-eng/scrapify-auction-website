@@ -232,7 +232,7 @@ function AuthPage() {
       <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
         <Link to="/" className="mb-8 inline-flex items-center gap-2 font-display text-lg font-bold">
           <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg bg-white">
-            <img src="/scrapify-auction-app-icon.png" alt="Scrapify Auctions" className="h-full w-full object-contain" />
+            <img src="/logo.svg" alt="Scrapify Auctions" className="h-full w-full object-contain" />
           </span>
           Scrapify<span className="text-[color:var(--gold-soft)]">Auction</span>
         </Link>
