@@ -385,7 +385,7 @@ function CreateEventWizard() {
       if (!willUploadTemplate) {
         auctionPayload.sub_lots = lines.map((line) => ({
           name: line.description,
-          quantity: Number(line.quantity) || 0,
+          quantity: String(line.quantity || "0"),
           uom: line.unit || "Nos.",
           reserve_price: Number(line.startPrice || baseline),
         }));

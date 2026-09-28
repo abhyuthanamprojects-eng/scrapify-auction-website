@@ -58,8 +58,15 @@ export const publishChecklist: any = (_event: AuctionEvent) => [];
 export const inr = (n: number) => "₹" + n.toLocaleString("en-IN");
 export const cr = (n: number) => `₹${(n / 10_000_000).toFixed(2)} Cr`;
 export const timeLeft = (endAt: number, from = Date.now()) => {
-  const seconds = Math.max(0, Math.floor((endAt - from) / 1000));
-  return { totalSeconds: seconds, days: Math.floor(seconds / 86400), hours: Math.floor((seconds % 86400) / 3600), minutes: Math.floor((seconds % 3600) / 60), seconds: seconds % 60, ended: seconds === 0 };
+  const total = Math.max(0, Math.floor((endAt - from) / 1000));
+  if (total === 0) return "Ended";
+  const d = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
 };
 export const fmtDate = (ms: number) => {
   const date = new Date(ms);
