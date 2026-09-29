@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ShieldCheck, Gavel, Truck, Scale, TrendingUp, Factory, Search, X, MapPin, Clock } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { MobileAppSection } from "@/components/mobile-app-section";
 import { LotCard } from "@/components/lot-card";
 import { formatINR, getAuctions, getCategories, type Lot } from "@/lib/auction-data";
 import heroImg from "@/assets/hero-scrapyard.jpg";
@@ -278,6 +279,9 @@ function Marketplace() {
           </div>
         </div>
       </section>
+
+      {/* Mobile App Download */}
+      <MobileAppSection />
 
       <SiteFooter />
       {detailsLot && (
