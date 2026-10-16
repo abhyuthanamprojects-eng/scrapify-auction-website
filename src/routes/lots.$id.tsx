@@ -22,7 +22,6 @@ import { SiteFooter } from "@/components/site-footer";
 import { getLot, formatINR, timeLeft, type Lot } from "@/lib/auction-data";
 import { useTick } from "@/hooks/use-tick";
 import { useRegistration } from "@/hooks/use-registration";
-import { useFlow } from "@/hooks/use-flow";
 import { VendorStatusBanner } from "@/components/vendor-status-banner";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-client";
@@ -35,7 +34,6 @@ import {
   startsAt,
   subLots,
   terms,
-  toggleWatch,
   type EmdStatus,
 } from "@/lib/customer-flow";
 
@@ -135,13 +133,13 @@ function LotDetail() {
   const { state } = useRegistration();
   const approved = state.approved;
   const pending = state.paymentSubmitted && !approved;
-  const flow = useFlow();
   const part = lot.isRegistered ? { lotId: lot.id } : undefined;
   const [emdStatus, setEmdStatus] = useState<EmdStatus>(initialEmdStatus);
   const [emdBusy, setEmdBusy] = useState(false);
+  const [watching, setWatching] = useState(lot.isInterested);
+  const [watchBusy, setWatchBusy] = useState(false);
   const emdOk = emdStatus === "confirmed";
   const canBid = approved && lot.isRegistered && emdOk && lot.status === "live";
-  const watching = flow.watch.includes(lot.id);
   const lockEmd = async () => {
     setEmdBusy(true);
     try {
@@ -153,6 +151,22 @@ function LotDetail() {
       window.alert(error instanceof Error ? error.message : "Unable to lock EMD.");
     } finally {
       setEmdBusy(false);
+    }
+  };
+  const toggleWatching = async () => {
+    setWatchBusy(true);
+    try {
+      if (watching) {
+        await api.unmarkInterested(lot.id);
+        setWatching(false);
+      } else {
+        await api.markInterested(lot.id);
+        setWatching(true);
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Unable to update watchlist.");
+    } finally {
+      setWatchBusy(false);
     }
   };
   const fmt = (ms: number) =>
@@ -509,7 +523,8 @@ function LotDetail() {
 
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => toggleWatch(lot.id)}
+                  disabled={watchBusy}
+                  onClick={() => void toggleWatching()}
                   className={`inline-flex items-center justify-center gap-2 rounded-full border py-2 text-sm ${
                     watching
                       ? "border-[color:var(--auction)] text-[color:var(--auction)]"
@@ -517,7 +532,7 @@ function LotDetail() {
                   }`}
                 >
                   <Heart className={`h-4 w-4 ${watching ? "fill-current" : ""}`} />
-                  {watching ? "Watching" : "Watch"}
+                  {watchBusy ? "Updating…" : watching ? "Watching" : "Watch"}
                 </button>
                 <button className="inline-flex items-center justify-center gap-2 rounded-full border border-border py-2 text-sm text-muted-foreground hover:text-foreground">
                   <Share2 className="h-4 w-4" /> Share

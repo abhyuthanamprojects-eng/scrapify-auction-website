@@ -28,6 +28,7 @@ export type Lot = {
   subLots: Array<{ no: string; description: string; quantity: string; startPrice: number }>;
   terms: string[];
   isRegistered: boolean;
+  isInterested: boolean;
   registrationOpen: boolean;
   registrationEnd: number | null;
 };
@@ -131,6 +132,7 @@ export function toLot(row: ApiAuction): Lot {
     }),
     terms,
     isRegistered: row.is_registered === true,
+    isInterested: row.is_interested === true,
     registrationOpen: row.registration_open !== false,
     registrationEnd: row.registration_end ? epoch(row.registration_end, 0) : null,
   };
