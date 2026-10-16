@@ -114,17 +114,18 @@ function BidderRoom() {
   const gateOk = accepted && terms && emd && me?.qualification !== "blocked";
   const closed = event.endAt <= Date.now() || !["live", "paused", "published", "invited"].includes(event.state);
   const submit = async (submission: Submission) => {
-    const apiBackedFormat = ["english", "bafo", "dutch", "japanese"].includes(event.format);
-    if (submission.amount != null && apiBackedFormat) {
-      try {
-        await api.placeBid(event.id, {
-          amount: submission.amount,
-          idempotency_key: `${event.id}-${Date.now()}`,
-        });
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Bid submission failed");
-        return;
-      }
+    if (submission.amount == null) {
+      toast.error("This response type is not connected to the auction API yet and was not submitted.");
+      return;
+    }
+    try {
+      await api.placeBid(event.id, {
+        amount: submission.amount,
+        idempotency_key: `${event.id}-${crypto.randomUUID()}`,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Bid submission failed");
+      return;
     }
     push(submission);
   };
