@@ -12,14 +12,8 @@ import {
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { getLot, formatINR, type Lot } from "@/lib/auction-data";
-import { useFlow } from "@/hooks/use-flow";
 import { api } from "@/lib/api-client";
-import {
-  EMD_LABEL,
-  payableSummary,
-  scheduleLifting,
-  submitPayment,
-} from "@/lib/customer-flow";
+import { EMD_LABEL } from "@/lib/customer-flow";
 
 export const Route = createFileRoute("/results/$id")({
   loader: async ({ params }) => {
@@ -65,35 +59,37 @@ export const Route = createFileRoute("/results/$id")({
 
 function ResultPage() {
   const { lot } = Route.useLoaderData() as { lot: Lot };
-  const flow = useFlow();
-  const myBid = flow.myBids[lot.id];
-  const participation = flow.participation[lot.id];
-  const emdHeld = participation?.emd === "confirmed" ? lot.emd : 0;
-  const payment = flow.payments[lot.id];
   const [authoritativeResult, setAuthoritativeResult] = useState<any>(null);
+  const [order, setOrder] = useState<any>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   useEffect(() => {
-    api.getAuctionResult(lot.id).then((response) => setAuthoritativeResult(response.data ?? response)).catch(() => {
-      // Older/legacy auctions may not have an authoritative close snapshot.
+    Promise.all([
+      api.getAuctionResult(lot.id),
+      api.getOrders(),
+    ]).then(([resultResponse, ordersResponse]) => {
+      setAuthoritativeResult(resultResponse.data ?? resultResponse);
+      const rows = Array.isArray(ordersResponse?.data) ? ordersResponse.data : [];
+      setOrder(rows.find((row: any) => String(row.auction_id) === lot.id) ?? null);
+    }).catch(() => {
+      // The result endpoint is authoritative; do not synthesize a local result.
     });
   }, [lot.id]);
 
-  const isReverse = lot.auctionType === "reverse";
-  const leads = myBid
-    ? isReverse
-      ? myBid <= lot.currentBid
-      : myBid >= lot.currentBid
-    : false;
-  const reserveMet = (myBid ?? lot.currentBid) >= lot.reserve;
-  const outcome: "won" | "lost" | "reserve" = !myBid
-    ? "lost"
-    : !reserveMet
-      ? "reserve"
-      : leads
-        ? "won"
-        : "lost";
-
-  const sum = payableSummary(myBid ?? lot.currentBid, emdHeld);
+  const participant = authoritativeResult?.participant;
+  const myBid = participant?.amount == null ? null : Number(participant.amount);
+  const outcome: "won" | "lost" = participant?.rank === 1 ? "won" : "lost";
+  const emdHeld = Number(authoritativeResult?.emd?.amount ?? 0);
+  const sum = {
+    h1: myBid ?? Number(authoritativeResult?.final_value ?? 0),
+    gst: Math.round((myBid ?? Number(authoritativeResult?.final_value ?? 0)) * 0.18),
+    tcs: Math.round((myBid ?? Number(authoritativeResult?.final_value ?? 0)) * 1.18 * 0.01),
+  };
+  const total = sum.h1 + sum.gst + sum.tcs;
+  const balance = Math.max(0, total - emdHeld);
+  const payment = order?.paid_at ? { reference: "Recorded by API" } : null;
+  const pickup = order?.pickup ?? null;
+  const participation = { emd: authoritativeResult?.emd?.status ?? "not_paid" };
   const [ref, setRef] = useState("");
   const [slot, setSlot] = useState("");
 
@@ -122,7 +118,9 @@ function ResultPage() {
             )}
             <div>
               <h1 className="font-display text-2xl font-extrabold text-foreground">
-                {outcome === "won"
+                {!authoritativeResult
+                  ? "Loading verified result…"
+                  : outcome === "won"
                   ? "You won this auction"
                   : outcome === "reserve"
                     ? "Reserve not met"
@@ -186,9 +184,9 @@ function ResultPage() {
                 <Money label="H1 value" value={sum.h1} />
                 <Money label="GST @ 18%" value={sum.gst} />
                 <Money label="TCS @ 1% (on value + GST)" value={sum.tcs} />
-                <Money label="Total" value={sum.total} strong />
-                <Money label="Less EMD held" value={-sum.emdHeld} />
-                <Money label="Balance payable" value={sum.balance} strong />
+                <Money label="Total" value={total} strong />
+                <Money label="Less EMD held" value={-emdHeld} />
+                <Money label="Balance payable" value={balance} strong />
               </dl>
             </section>
 
@@ -208,11 +206,17 @@ function ResultPage() {
                     className="flex-1 rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
                   />
                   <button
-                    disabled={!ref.trim()}
-                    onClick={() => submitPayment(lot, ref.trim())}
+                    disabled={!ref.trim() || !order || actionBusy}
+                    onClick={async () => {
+                      if (!order) return;
+                      setActionBusy(true);
+                      try { await api.payOrder(order.id, { method: "manual", reference: ref.trim() }); setOrder({ ...order, paid_at: new Date().toISOString(), status: "paid" }); }
+                      catch (error) { window.alert(error instanceof Error ? error.message : "Payment could not be recorded."); }
+                      finally { setActionBusy(false); }
+                    }}
                     className="rounded-full bg-[color:var(--auction)] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
                   >
-                    Submit payment
+                    {actionBusy ? "Recording…" : "Submit payment"}
                   </button>
                 </div>
               )}
@@ -220,10 +224,10 @@ function ResultPage() {
 
             <section className="mt-6 card-soft p-6">
               <h2 className="font-display text-lg font-bold">Lifting &amp; gate pass</h2>
-              {payment?.lifting ? (
+              {pickup ? (
                 <div className="mt-3 rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 text-sm">
                   <div className="flex items-center gap-2 font-semibold text-emerald-800">
-                    <Truck className="h-4 w-4" /> Pickup scheduled · {payment.lifting}
+                    <Truck className="h-4 w-4" /> Pickup scheduled · {new Date(pickup.window_start).toLocaleString("en-IN")}
                   </div>
                   <p className="mt-1 text-emerald-800/80">
                     Delivery status: In progress. Show the gate pass at {lot.location}.
@@ -241,11 +245,17 @@ function ResultPage() {
                     className="flex-1 rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
                   />
                   <button
-                    disabled={!slot || !payment}
+                    disabled={!slot || !payment || !order || actionBusy}
                     title={!payment ? "Submit the balance payment first" : undefined}
-                    onClick={() =>
-                      scheduleLifting(lot, new Date(slot).toLocaleString("en-IN"))
-                    }
+                    onClick={async () => {
+                      if (!order) return;
+                      const start = new Date(slot);
+                      const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+                      setActionBusy(true);
+                      try { const response = await api.scheduleOrderPickup(order.id, { window_start: start.toISOString(), window_end: end.toISOString(), warehouse: lot.location }); setOrder({ ...order, pickup: response.pickup ?? response.data?.pickup }); }
+                      catch (error) { window.alert(error instanceof Error ? error.message : "Pickup could not be scheduled."); }
+                      finally { setActionBusy(false); }
+                    }}
                     className="rounded-full bg-[color:var(--navy)] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
                   >
                     Schedule lifting
@@ -267,7 +277,7 @@ function ResultPage() {
             <ol className="mt-4 space-y-3">
               {(["confirmed", "refund_initiated", "refunded"] as const).map((s, i) => {
                 const order = ["confirmed", "refund_initiated", "refunded"];
-                const at = order.indexOf(participation?.emd ?? "not_paid");
+                const at = order.indexOf(participation.emd);
                 const done = at >= i;
                 return (
                   <li key={s} className="flex items-center gap-3 text-sm">
@@ -287,7 +297,7 @@ function ResultPage() {
                 );
               })}
             </ol>
-            {participation && (
+            {authoritativeResult?.emd && (
               <div className="mt-4 flex flex-wrap gap-2 text-xs">
                 <span className="rounded-full border border-border px-3 py-1.5 font-semibold text-muted-foreground">
                   Refund status is updated by finance

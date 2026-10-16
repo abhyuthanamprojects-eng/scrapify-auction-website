@@ -654,6 +654,24 @@ class ScrapifyApiClient {
     });
   }
 
+  async getOrders() {
+    return this.request<any>("/orders");
+  }
+
+  async payOrder(code: string, data: { method: string; reference?: string }) {
+    return this.request<any>(`/orders/${encodeURIComponent(code)}/pay`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async scheduleOrderPickup(code: string, data: { window_start: string; window_end: string; warehouse?: string }) {
+    return this.request<any>(`/orders/${encodeURIComponent(code)}/pickup`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
   /* ---------------- Site Inspections & Gate Passes ---------------- */
   async getInspections(code: string) {
     return this.request<ApiResponse<any>>(`/auctions/${code}/inspections`);
