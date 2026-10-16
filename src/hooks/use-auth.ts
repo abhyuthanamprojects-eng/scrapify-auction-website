@@ -9,6 +9,10 @@ export type AppUser = {
   role?: string;
   roles?: string[];
   user_metadata?: { full_name?: string };
+  vendor?: {
+    status?: string;
+    rejection_reason?: string | null;
+  } | null;
 };
 
 export interface AuthState {

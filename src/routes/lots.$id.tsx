@@ -125,14 +125,14 @@ function LotDetail() {
     lot: Lot;
     emdStatus: EmdStatus;
   };
-  const { primaryRole } = useAuth();
+  const { primaryRole, user } = useAuth();
   useTick(1000);
   const t = timeLeft(lot.endsAt);
   const [amount, setAmount] = useState(lot.currentBid + lot.increment);
   const isReverse = lot.auctionType === "reverse";
   const { state } = useRegistration();
-  const approved = state.approved;
-  const pending = state.paymentSubmitted && !approved;
+  const approved = user?.vendor?.status === "approved";
+  const pending = user?.vendor?.status === "pending" || (state.paymentSubmitted && !approved && !user);
   const part = lot.isRegistered ? { lotId: lot.id } : undefined;
   const [emdStatus, setEmdStatus] = useState<EmdStatus>(initialEmdStatus);
   const [emdBusy, setEmdBusy] = useState(false);

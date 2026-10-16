@@ -70,7 +70,7 @@ function LiveRoom() {
   const [stateError, setStateError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [emdConfirmed, setEmdConfirmed] = useState(false);
-  const [approved, setApproved] = useState(state.vendorStatus === "approved");
+  const [approved, setApproved] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -81,7 +81,7 @@ function LiveRoom() {
         const vendorStatus = String(
           user?.vendor_status ?? user?.vendor?.status ?? user?.vendor?.approval_status ?? user?.status ?? "",
         ).toLowerCase();
-        setApproved(state.vendorStatus === "approved" || ["approved", "verified", "active"].includes(vendorStatus));
+        setApproved(["approved", "verified", "active"].includes(vendorStatus));
         const rows = Array.isArray(emdResponse?.data?.data)
           ? emdResponse.data.data
           : Array.isArray(emdResponse?.data)
@@ -97,7 +97,7 @@ function LiveRoom() {
         ));
       })
       .catch(() => {
-        if (active) setApproved(state.vendorStatus === "approved");
+        if (active) setApproved(false);
       });
     return () => { active = false; };
   }, [lot.id, state.vendorStatus]);

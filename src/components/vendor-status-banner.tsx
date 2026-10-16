@@ -1,11 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, Ban, Clock3 } from "lucide-react";
 import { useRegistration } from "@/hooks/use-registration";
+import { useAuth } from "@/hooks/use-auth";
 
 /** Shows the admin-produced vendor status. The customer panel never invents it. */
 export function VendorStatusBanner() {
   const { state } = useRegistration();
-  const status = state.vendorStatus;
+  const { user } = useAuth();
+  const status = (user?.vendor?.status ?? state.vendorStatus).toLowerCase();
+  const reason = user?.vendor?.rejection_reason ?? state.statusReason;
 
   if (status === "pending") {
     return (
@@ -22,7 +25,7 @@ export function VendorStatusBanner() {
   if (status === "rejected") {
     return (
       <Band tone="red" icon={AlertTriangle}>
-        <b>Registration rejected</b> — reason: “{state.statusReason || "Not specified"}”.{" "}
+        <b>Registration rejected</b> — reason: “{reason || "Not specified"}”.{" "}
         <Link to="/register" className="font-semibold underline">
           Edit &amp; resubmit
         </Link>
@@ -33,7 +36,7 @@ export function VendorStatusBanner() {
   if (status === "suspended") {
     return (
       <Band tone="red" icon={Ban}>
-        <b>Account suspended</b> — reason: “{state.statusReason || "Not specified"}”.
+        <b>Account suspended</b> — reason: “{reason || "Not specified"}”.
         Bidding is blocked. Contact support at support@scrapify.in
       </Band>
     );
