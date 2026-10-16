@@ -15,7 +15,6 @@ import { getLot, formatINR, type Lot } from "@/lib/auction-data";
 import { api } from "@/lib/api-client";
 import { requireRole } from "@/lib/route-guards";
 import { useTick } from "@/hooks/use-tick";
-import { useHydrated } from "@/hooks/use-flow";
 import { useRegistration } from "@/hooks/use-registration";
 import {
   lotType,
@@ -64,13 +63,44 @@ function LiveRoom() {
   const { lot } = Route.useLoaderData() as { lot: Lot };
   const navigate = useNavigate();
   useTick(1000);
-  const hydrated = useHydrated();
   const { state } = useRegistration();
   const [liveState, setLiveState] = useState<any>(null);
   const [serverOffset, setServerOffset] = useState(0);
   const [liveBids, setLiveBids] = useState<any[]>([]);
   const [stateError, setStateError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [emdConfirmed, setEmdConfirmed] = useState(false);
+  const [approved, setApproved] = useState(state.vendorStatus === "approved");
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([api.me(), api.getEmd({ auction: lot.id })])
+      .then(([meResponse, emdResponse]) => {
+        if (!active) return;
+        const user = meResponse?.user ?? meResponse?.data?.user ?? meResponse?.data ?? {};
+        const vendorStatus = String(
+          user?.vendor_status ?? user?.vendor?.status ?? user?.vendor?.approval_status ?? user?.status ?? "",
+        ).toLowerCase();
+        setApproved(state.vendorStatus === "approved" || ["approved", "verified", "active"].includes(vendorStatus));
+        const rows = Array.isArray(emdResponse?.data?.data)
+          ? emdResponse.data.data
+          : Array.isArray(emdResponse?.data)
+            ? emdResponse.data
+            : [];
+        const row = rows.find((item: any) =>
+          [item.auction_id, item.auction_code, item.auction?.id, item.auction?.code]
+            .filter((value) => value != null)
+            .some((value) => String(value) === lot.id),
+        );
+        setEmdConfirmed(["confirmed", "success", "paid", "locked"].includes(
+          String(row?.status ?? row?.state ?? row?.payment_status ?? "").toLowerCase(),
+        ));
+      })
+      .catch(() => {
+        if (active) setApproved(state.vendorStatus === "approved");
+      });
+    return () => { active = false; };
+  }, [lot.id, state.vendorStatus]);
 
   const refreshLiveState = async () => {
     try {
@@ -94,9 +124,6 @@ function LiveRoom() {
     return () => window.clearInterval(timer);
   }, [lot.id]);
 
-  const participation = flow.participation[lot.id];
-  const emdConfirmed = participation?.emd === "confirmed";
-  const approved = state.vendorStatus === "approved";
   const endsAt = liveState?.active_slot?.ends_at
     ? Date.parse(liveState.active_slot.ends_at)
     : liveState?.schedule_end
@@ -215,7 +242,7 @@ function LiveRoom() {
                   }`}
                 >
                   <Clock className="h-4 w-4" />
-                  {over ? "Closed" : hydrated ? fmtRemaining(remaining) : "—"}
+                  {over ? "Closed" : fmtRemaining(remaining)}
                 </div>
               </div>
               <div className="mt-6 grid grid-cols-3 gap-4 border-t border-white/10 pt-4">
