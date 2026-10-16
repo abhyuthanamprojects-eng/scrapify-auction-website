@@ -33,18 +33,30 @@ export const Route = createFileRoute("/portal/events/$id")({
       ...(bidsResponse?.won ?? []),
       ...(bidsResponse?.lost ?? []),
     ];
+    const matchesAuction = (row: any) =>
+      [row.auction_id, row.auction_code, row.auction?.id, row.auction?.code]
+        .filter((value) => value != null)
+        .some((value) => String(value) === params.id);
     const hasOwnBid = bidRows.some(
-      (row: any) => String(row.auction_id ?? row.auction?.code) === params.id,
+      matchesAuction,
     );
-    const emdRows = Array.isArray(emdResponse?.data) ? emdResponse.data : [];
+    const emdRows = Array.isArray(emdResponse?.data?.data)
+      ? emdResponse.data.data
+      : Array.isArray(emdResponse?.data)
+        ? emdResponse.data
+        : [];
     const hasOwnEmd = emdRows.some(
-      (row: any) => String(row.auction_id ?? row.auction?.code) === params.id,
+      (row: any) => {
+        if (!matchesAuction(row)) return false;
+        const status = String(row.status ?? row.state ?? row.payment_status ?? "").toLowerCase();
+        return !["refunded", "released", "forfeited", "failed", "rejected"].includes(status);
+      },
     );
     const ownParticipantId = event.participants.find((participant) => String(participant.id) === ownVendorId)?.id
-      ?? bidRows.find((row: any) => String(row.auction_id ?? row.auction?.code) === params.id)?.vendor_id
+      ?? bidRows.find(matchesAuction)?.vendor_id
       ?? null;
     const ownBids = bidRows.filter(
-      (row: any) => String(row.auction_id ?? row.auction?.code) === params.id,
+      matchesAuction,
     );
 
     // A public auction URL is not an invitation. Only a buyer with an
