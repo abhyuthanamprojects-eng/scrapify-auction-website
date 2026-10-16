@@ -25,25 +25,50 @@ import { useRegistration } from "@/hooks/use-registration";
 import { useFlow } from "@/hooks/use-flow";
 import { VendorStatusBanner } from "@/components/vendor-status-banner";
 import { useAuth } from "@/hooks/use-auth";
+import { api } from "@/lib/api-client";
 import {
   EMD_LABEL,
-  confirmEmd,
   documents,
   emdPercent,
   inspection,
   lotType,
-  payEmd,
-  registerForAuction,
   startsAt,
   subLots,
   terms,
   toggleWatch,
+  type EmdStatus,
 } from "@/lib/customer-flow";
+
+function normalizeEmdStatus(value: unknown): EmdStatus {
+  const status = String(value ?? "").toLowerCase();
+  if (["confirmed", "success", "paid", "locked"].includes(status)) return "confirmed";
+  if (["pending", "processing", "initiated"].includes(status)) return "pending";
+  if (["refund_initiated", "refund-pending"].includes(status)) return "refund_initiated";
+  if (["refunded", "released"].includes(status)) return "refunded";
+  return "not_paid";
+}
 
 export const Route = createFileRoute("/lots/$id")({
   loader: async ({ params }) => {
     const lot = await getLot(params.id);
-    return { lot };
+    let emdStatus: EmdStatus = "not_paid";
+    try {
+      const response = await api.getEmd({ auction: params.id });
+      const rows = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : Array.isArray(response?.data)
+          ? response.data
+          : [];
+      const row = rows.find((item: any) =>
+        [item.auction_id, item.auction_code, item.auction?.id, item.auction?.code]
+          .filter((value) => value != null)
+          .some((value) => String(value) === params.id),
+      );
+      emdStatus = normalizeEmdStatus(row?.status ?? row?.state ?? row?.payment_status);
+    } catch {
+      // Public listing remains available when an unauthenticated visitor cannot read EMD state.
+    }
+    return { lot, emdStatus };
   },
   head: ({ loaderData }) => {
     if (!loaderData) {
@@ -98,7 +123,10 @@ export const Route = createFileRoute("/lots/$id")({
 });
 
 function LotDetail() {
-  const { lot } = Route.useLoaderData() as { lot: Lot };
+  const { lot, emdStatus: initialEmdStatus } = Route.useLoaderData() as {
+    lot: Lot;
+    emdStatus: EmdStatus;
+  };
   const { primaryRole } = useAuth();
   useTick(1000);
   const t = timeLeft(lot.endsAt);
@@ -108,12 +136,25 @@ function LotDetail() {
   const approved = state.approved;
   const pending = state.paymentSubmitted && !approved;
   const flow = useFlow();
-  const part = flow.participation[lot.id];
-  const emdStatus = part?.emd ?? "not_paid";
+  const part = lot.isRegistered ? { lotId: lot.id } : undefined;
+  const [emdStatus, setEmdStatus] = useState<EmdStatus>(initialEmdStatus);
+  const [emdBusy, setEmdBusy] = useState(false);
   const emdOk = emdStatus === "confirmed";
   const canBid = approved && lot.isRegistered && emdOk && lot.status === "live";
   const watching = flow.watch.includes(lot.id);
-  const [emdRef, setEmdRef] = useState("");
+  const lockEmd = async () => {
+    setEmdBusy(true);
+    try {
+      const response = await api.lockEmd(lot.id);
+      const status = normalizeEmdStatus(response?.data?.status ?? response?.status ?? "pending");
+      setEmdStatus(status);
+    } catch (error) {
+      // Keep the user on the listing and show the server's actual reason.
+      window.alert(error instanceof Error ? error.message : "Unable to lock EMD.");
+    } finally {
+      setEmdBusy(false);
+    }
+  };
   const fmt = (ms: number) =>
     new Date(ms).toLocaleString("en-IN", {
       day: "2-digit",
@@ -431,10 +472,11 @@ function LotDetail() {
 
                 {approved && lot.registrationOpen && emdStatus === "not_paid" && !part && (
                   <button
-                    onClick={() => registerForAuction(lot)}
+                    disabled={emdBusy}
+                    onClick={() => void lockEmd()}
                     className="mt-3 w-full rounded-full bg-[color:var(--navy)] py-2.5 text-sm font-bold text-white"
                   >
-                    Register for this auction
+                    {emdBusy ? "Joining auction…" : "Join auction and lock EMD"}
                   </button>
                 )}
 
@@ -445,29 +487,22 @@ function LotDetail() {
                 )}
 
                 {approved && part && emdStatus === "not_paid" && (
-                  <div className="mt-3 space-y-2">
-                    <input
-                      value={emdRef}
-                      onChange={(e) => setEmdRef(e.target.value)}
-                      placeholder="Payment reference (NEFT / UPI / gateway)"
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
-                    />
-                    <button
-                      disabled={!emdRef.trim()}
-                      onClick={() => payEmd(lot, "neft", emdRef.trim())}
-                      className="w-full rounded-full bg-[color:var(--auction)] py-2.5 text-sm font-bold text-white disabled:opacity-50"
-                    >
-                      Pay EMD {formatINR(lot.emd)}
-                    </button>
-                  </div>
+                  <button
+                    disabled={emdBusy}
+                    onClick={() => void lockEmd()}
+                    className="mt-3 w-full rounded-full bg-[color:var(--auction)] py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    {emdBusy ? "Locking EMD…" : `Lock EMD ${formatINR(lot.emd)}`}
+                  </button>
                 )}
 
                 {emdStatus === "pending" && (
                   <button
-                    onClick={() => confirmEmd(lot)}
+                    disabled={emdBusy}
+                    onClick={() => void lockEmd()}
                     className="mt-3 w-full rounded-full border border-border py-2 text-xs font-semibold hover:border-emerald-600"
                   >
-                    Refresh payment status
+                    {emdBusy ? "Checking payment status…" : "Refresh payment status"}
                   </button>
                 )}
               </div>
