@@ -1233,43 +1233,48 @@ function Step3({
     setBusy(true);
     setError(null);
     try {
-      const vendorResponse = await api.registerVendor({
-        company_name: f.companyName,
-        address: f.registeredAddress,
-        pincode: f.pincode,
-        city: f.city,
-        state: f.state,
-        contact_name: f.contactName,
-        email: f.contactEmail,
-        phone: f.contactMobile,
-        gst_number: f.gstNumber,
-        business_type: f.entityType,
-        pan_number: f.panNumber,
-        turnover_band: f.turnoverBand,
-        license_number: f.licenseNumber,
-        bank_name: f.bankName,
-        account_number: f.bankAccount,
-        ifsc_code: f.bankIfsc,
-        account_holder_name: f.bankAccountHolderName || f.contactName,
-        material_interest: materials,
-        terms_accepted: terms,
-        ...(warehouseRequired
-          ? {
-              warehouse_details: {
-                name: f.warehouseName,
-                address: f.warehouseAddress,
-                city: f.warehouseCity,
-                state: f.warehouseState,
-                pincode: f.warehousePincode,
-                contact_name: f.warehouseContact || f.contactName,
-                contact_phone: f.contactMobile,
-              },
-            }
-          : {}),
-      });
-      const vendorCode =
-        vendorResponse.data?.code ?? vendorResponse.code ?? vendorResponse.id ?? state.vendorCode;
+      let vendorCode = state.vendorCode;
+      if (!vendorCode) {
+        const vendorResponse = await api.registerVendor({
+          company_name: f.companyName,
+          address: f.registeredAddress,
+          pincode: f.pincode,
+          city: f.city,
+          state: f.state,
+          contact_name: f.contactName,
+          email: f.contactEmail,
+          phone: f.contactMobile,
+          gst_number: f.gstNumber,
+          business_type: f.entityType,
+          pan_number: f.panNumber,
+          turnover_band: f.turnoverBand,
+          license_number: f.licenseNumber,
+          bank_name: f.bankName,
+          account_number: f.bankAccount,
+          ifsc_code: f.bankIfsc,
+          account_holder_name: f.bankAccountHolderName || f.contactName,
+          material_interest: materials,
+          terms_accepted: terms,
+          ...(warehouseRequired
+            ? {
+                warehouse_details: {
+                  name: f.warehouseName,
+                  address: f.warehouseAddress,
+                  city: f.warehouseCity,
+                  state: f.warehouseState,
+                  pincode: f.warehousePincode,
+                  contact_name: f.warehouseContact || f.contactName,
+                  contact_phone: f.contactMobile,
+                },
+              }
+            : {}),
+        });
+        vendorCode =
+          vendorResponse.data?.code ?? vendorResponse.code ?? vendorResponse.id ?? undefined;
+        if (vendorCode) update({ vendorCode: String(vendorCode) });
+      }
       if (!vendorCode) throw new Error("Vendor code missing from registration response.");
+      vendorCode = String(vendorCode);
       const documentUploads = [
         api.uploadVendorDocument(vendorCode, "gst", "GST Certificate", gstFile!),
         api.uploadVendorDocument(vendorCode, "pan", "PAN Card", panFile!),
