@@ -55,13 +55,19 @@ export const Route = createFileRoute("/portal/events/$id")({
     const ownParticipantId = event.participants.find((participant) => String(participant.id) === ownVendorId)?.id
       ?? bidRows.find(matchesAuction)?.vendor_id
       ?? null;
+    const hasOwnParticipation = event.participants.some(
+      (participant: any) =>
+        [participant.id, participant.vendor_id, participant.vendor?.id, participant.vendor?.code]
+          .filter((value) => value != null)
+          .some((value) => String(value) === ownVendorId),
+    );
     const ownBids = bidRows.filter(
       matchesAuction,
     );
 
     // A public auction URL is not an invitation. Only a buyer with an
     // authenticated participation record may enter this workspace.
-    if (!hasOwnBid && !hasOwnEmd) throw notFound();
+    if (!hasOwnBid && !hasOwnEmd && !hasOwnParticipation) throw notFound();
 
     return { event, ownParticipantId, ownBids, hasOwnEmd };
   },
