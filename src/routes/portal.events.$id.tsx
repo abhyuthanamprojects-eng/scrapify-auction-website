@@ -21,10 +21,11 @@ export const Route = createFileRoute("/portal/events/$id")({
     const event = await loadEvent(params.id);
     if (!event) throw notFound();
 
-    const [meResponse, bidsResponse, emdResponse] = await Promise.all([
+    const [meResponse, bidsResponse, emdResponse, rfxResponse] = await Promise.all([
       api.me(),
       api.getMyBids(),
       api.getEmd({ auction: params.id }),
+      api.getRfx(params.id).catch(() => null),
     ]);
     const user = meResponse?.user ?? meResponse?.data?.user ?? meResponse?.data ?? {};
     const ownVendorId = String(user?.vendor?.code ?? user?.vendor_id ?? "");
@@ -69,7 +70,16 @@ export const Route = createFileRoute("/portal/events/$id")({
     // authenticated participation record may enter this workspace.
     if (!hasOwnBid && !hasOwnEmd && !hasOwnParticipation) throw notFound();
 
-    return { event, ownParticipantId, ownBids, hasOwnEmd };
+    const rfxPackages = Array.isArray(rfxResponse?.data?.data)
+      ? rfxResponse.data.data
+      : Array.isArray(rfxResponse?.data)
+        ? rfxResponse.data
+        : [];
+    const rfxPackage = rfxPackages.find((pkg: any) => String(pkg.type).toLowerCase() === event.format)
+      ?? rfxPackages[0]
+      ?? null;
+
+    return { event, ownParticipantId, ownBids, hasOwnEmd, rfxPackage };
   },
   head: ({ loaderData }) => {
     const e = loaderData?.event;
@@ -109,10 +119,28 @@ export const Route = createFileRoute("/portal/events/$id")({
   component: BidderRoom,
 });
 
-type Submission = { at: number; label: string; amount?: number };
+type RfxPackage = {
+  id: number;
+  type?: string;
+  title?: string;
+  questions?: Array<{
+    id: number;
+    question_text: string;
+    type?: string;
+    options?: string[] | null;
+    is_required?: boolean;
+  }>;
+};
+
+type Submission = {
+  at: number;
+  label: string;
+  amount?: number;
+  rfx?: { packageId: number; answers: Record<string, unknown> };
+};
 
 function BidderRoom() {
-  const { event, ownParticipantId, ownBids, hasOwnEmd } = Route.useLoaderData();
+  const { event, ownParticipantId, ownBids, hasOwnEmd, rfxPackage } = Route.useLoaderData();
   useTick(1000);
 
   const me = event.participants.find((participant) => String(participant.id) === String(ownParticipantId));
@@ -132,17 +160,20 @@ function BidderRoom() {
   const gateOk = accepted && terms && emd && me?.qualification !== "blocked";
   const closed = event.endAt <= Date.now() || !["live", "paused", "published", "invited"].includes(event.state);
   const submit = async (submission: Submission) => {
-    if (submission.amount == null) {
-      toast.error("This response type is not connected to the auction API yet and was not submitted.");
-      return;
-    }
     try {
-      await api.placeBid(event.id, {
-        amount: submission.amount,
-        idempotency_key: `${event.id}-${crypto.randomUUID()}`,
-      });
+      if (submission.rfx) {
+        await api.submitRfxResponse(event.id, submission.rfx.packageId, submission.rfx.answers);
+      } else if (submission.amount != null) {
+        await api.placeBid(event.id, {
+          amount: submission.amount,
+          idempotency_key: `${event.id}-${crypto.randomUUID()}`,
+        });
+      } else {
+        toast.error("This response type is not configured for API submission.");
+        return;
+      }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Bid submission failed");
+      toast.error(error instanceof Error ? error.message : "Submission failed");
       return;
     }
     push(submission);
@@ -255,7 +286,7 @@ function BidderRoom() {
 
       <div className="mt-4 space-y-4">
         {tab === "bid" && (
-          <FormatPanel event={event} disabled={!gateOk || closed} onSubmit={submit} myBest={myBest?.amount} />
+          <FormatPanel event={event} rfxPackage={rfxPackage} disabled={!gateOk || closed} onSubmit={submit} myBest={myBest?.amount} />
         )}
 
         {tab === "lots" && (
@@ -325,7 +356,7 @@ function BidderRoom() {
           </>
         )}
 
-        {tab === "negotiation" && <Negotiation event={event} onSubmit={push} disabled={!gateOk} />}
+        {tab === "negotiation" && <Negotiation event={event} disabled={!gateOk} />}
 
         {tab === "activity" && (
           <Card title="My activity trail" desc="Every action you take on this event is timestamped.">
@@ -351,11 +382,13 @@ function BidderRoom() {
 
 function FormatPanel({
   event,
+  rfxPackage,
   disabled,
   onSubmit,
   myBest,
 }: {
   event: AuctionEvent;
+  rfxPackage: RfxPackage | null;
   disabled: boolean;
   onSubmit: (s: Submission) => void;
   myBest?: number;
@@ -368,15 +401,15 @@ function FormatPanel({
     case "japanese":
       return <JapanesePanel event={event} disabled={disabled} onSubmit={onSubmit} />;
     case "rfq":
-      return <QuoteSheet event={event} disabled={disabled} onSubmit={onSubmit} />;
+      return <QuoteSheet event={event} rfxPackage={rfxPackage} disabled={disabled} onSubmit={onSubmit} />;
     case "rfi":
-      return <RfiPanel event={event} disabled={disabled} onSubmit={onSubmit} />;
+      return <RfiPanel event={event} rfxPackage={rfxPackage} disabled={disabled} onSubmit={onSubmit} />;
     case "rfp":
-      return <RfpPanel event={event} disabled={disabled} onSubmit={onSubmit} />;
+      return <RfpPanel event={event} rfxPackage={rfxPackage} disabled={disabled} onSubmit={onSubmit} />;
     case "bafo":
       return <EnglishPanel event={event} disabled={disabled} onSubmit={onSubmit} myBest={myBest} bafo />;
     case "negotiated":
-      return <Negotiation event={event} disabled={disabled} onSubmit={onSubmit} />;
+      return <Negotiation event={event} disabled={disabled} />;
     default:
       return <EnglishPanel event={event} disabled={disabled} onSubmit={onSubmit} myBest={myBest} />;
   }
@@ -600,7 +633,7 @@ function JapanesePanel({ event, disabled, onSubmit }: { event: AuctionEvent; dis
   );
 }
 
-function QuoteSheet({ event, disabled, onSubmit }: { event: AuctionEvent; disabled: boolean; onSubmit: (s: Submission) => void }) {
+function QuoteSheet({ event, rfxPackage, disabled, onSubmit }: { event: AuctionEvent; rfxPackage: RfxPackage | null; disabled: boolean; onSubmit: (s: Submission) => void | Promise<void> }) {
   const [values, setValues] = useState<Record<string, number>>(
     Object.fromEntries(event.lots.map((l) => [l.no, l.startPrice])),
   );
@@ -622,11 +655,19 @@ function QuoteSheet({ event, disabled, onSubmit }: { event: AuctionEvent; disabl
         <Stat label="Quote total" value={cr(total)} />
         <div className="flex items-end">
           <button
-            disabled={disabled}
-            onClick={() => onSubmit({ at: Date.now(), label: `Quote submitted (valid ${validity} days)`, amount: total })}
+            disabled={disabled || !rfxPackage}
+            onClick={() => {
+              if (!rfxPackage) return;
+              void onSubmit({
+                at: Date.now(),
+                label: `Quote submitted (valid ${validity} days)`,
+                amount: total,
+                rfx: { packageId: rfxPackage.id, answers: { ...values, validity_days: Number(validity) } },
+              });
+            }}
             className="rounded-full bg-[color:var(--auction)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
           >
-            Submit quote
+            {rfxPackage ? "Submit quote" : "Quote package unavailable"}
           </button>
         </div>
       </div>
@@ -642,24 +683,27 @@ const RFI_QUESTIONS = [
   "Quality, safety and ESG certifications",
 ];
 
-function RfiPanel({ disabled, onSubmit }: { event: AuctionEvent; disabled: boolean; onSubmit: (s: Submission) => void }) {
+function RfiPanel({ rfxPackage, disabled, onSubmit }: { event: AuctionEvent; rfxPackage: RfxPackage | null; disabled: boolean; onSubmit: (s: Submission) => void | Promise<void> }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const done = RFI_QUESTIONS.filter((q) => (answers[q] ?? "").trim().length > 0).length;
+  const questions = rfxPackage?.questions?.length
+    ? rfxPackage.questions
+    : RFI_QUESTIONS.map((question, index) => ({ id: index + 1, question_text: question, is_required: true }));
+  const done = questions.filter((q) => !q.is_required || (answers[String(q.id)] ?? "").trim().length > 0).length;
 
   return (
     <Card
       title="Information questionnaire (RFI)"
       desc="No pricing at this stage. Responses are used for prequalification only."
-      actions={<Pill tone={done === RFI_QUESTIONS.length ? "good" : "warn"}>{done}/{RFI_QUESTIONS.length} answered</Pill>}
+      actions={<Pill tone={done === questions.length ? "good" : "warn"}>{done}/{questions.length} answered</Pill>}
     >
       <div className="space-y-4">
-        {RFI_QUESTIONS.map((q) => (
-          <label key={q} className="block text-sm">
-            <span className="mb-1 block font-medium">{q}</span>
+        {questions.map((q) => (
+          <label key={q.id} className="block text-sm">
+            <span className="mb-1 block font-medium">{q.question_text}</span>
             <textarea
               rows={2}
-              value={answers[q] ?? ""}
-              onChange={(e) => setAnswers((a) => ({ ...a, [q]: e.target.value }))}
+              value={answers[String(q.id)] ?? ""}
+              onChange={(e) => setAnswers((a) => ({ ...a, [String(q.id)]: e.target.value }))}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
           </label>
@@ -668,18 +712,25 @@ function RfiPanel({ disabled, onSubmit }: { event: AuctionEvent; disabled: boole
           Drag supporting documents here (GST, PAN, audited financials, certifications).
         </div>
         <button
-          disabled={disabled || done < RFI_QUESTIONS.length}
-          onClick={() => onSubmit({ at: Date.now(), label: "RFI response submitted" })}
+          disabled={disabled || !rfxPackage || done < questions.length}
+          onClick={() => {
+            if (!rfxPackage) return;
+            void onSubmit({
+              at: Date.now(),
+              label: "RFI response submitted",
+              rfx: { packageId: rfxPackage.id, answers },
+            });
+          }}
           className="rounded-full bg-[color:var(--auction)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
         >
-          Submit response
+          {rfxPackage ? "Submit response" : "RFI package unavailable"}
         </button>
       </div>
     </Card>
   );
 }
 
-function RfpPanel({ event, disabled, onSubmit }: { event: AuctionEvent; disabled: boolean; onSubmit: (s: Submission) => void }) {
+function RfpPanel({ event, rfxPackage, disabled, onSubmit }: { event: AuctionEvent; rfxPackage: RfxPackage | null; disabled: boolean; onSubmit: (s: Submission) => void | Promise<void> }) {
   const [values, setValues] = useState<Record<string, number>>(
     Object.fromEntries(event.lots.map((l) => [l.no, l.startPrice])),
   );
@@ -709,7 +760,8 @@ function RfpPanel({ event, disabled, onSubmit }: { event: AuctionEvent; disabled
           disabled={disabled || tech.trim().length < 10}
           onClick={() => {
             setTechSent(true);
-            onSubmit({ at: Date.now(), label: "Technical envelope submitted" });
+            // Keep the technical envelope as a local draft. The API accepts one
+            // complete RFP response, so it is persisted with the commercial envelope.
           }}
           className="mt-4 rounded-full bg-[color:var(--navy)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
         >
@@ -726,14 +778,20 @@ function RfpPanel({ event, disabled, onSubmit }: { event: AuctionEvent; disabled
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Stat label="Commercial total" value={cr(total)} />
           <button
-            disabled={disabled || !techSent}
             onClick={() => {
+              if (!rfxPackage) return;
               setCommSent(true);
-              onSubmit({ at: Date.now(), label: "Commercial envelope submitted", amount: total });
+              void onSubmit({
+                at: Date.now(),
+                label: "RFP technical and commercial envelopes submitted",
+                amount: total,
+                rfx: { packageId: rfxPackage.id, answers: { technical: tech, commercial: values, total } },
+              });
             }}
+            disabled={disabled || !rfxPackage || !techSent}
             className="rounded-full bg-[color:var(--auction)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
           >
-            Seal & submit commercial
+            {rfxPackage ? "Seal & submit commercial" : "RFP package unavailable"}
           </button>
         </div>
         {!techSent && <p className="mt-2 text-sm text-muted-foreground">Submit the technical envelope first.</p>}
@@ -742,71 +800,14 @@ function RfpPanel({ event, disabled, onSubmit }: { event: AuctionEvent; disabled
   );
 }
 
-function Negotiation({ event, disabled, onSubmit }: { event: AuctionEvent; disabled: boolean; onSubmit: (s: Submission) => void }) {
-  const base = event.value || event.baseline;
-  const [thread, setThread] = useState<{ from: "buyer" | "me"; text: string; amount?: number; at: number }[]>([
-    {
-      from: "buyer",
-      text:
-        event.direction === "forward"
-          ? "We can conclude at this level if you improve by 1.5% and confirm lifting within 7 days."
-          : "Please revisit your rate by 2% and confirm a 12-month price hold.",
-      amount: event.direction === "forward" ? Math.round(base * 1.015) : Math.round(base * 0.98),
-      at: Date.now() - 3600_000,
-    },
-  ]);
-  const [amount, setAmount] = useState(base);
-  const [note, setNote] = useState("");
-
+function Negotiation({ disabled }: { event: AuctionEvent; disabled: boolean }) {
   return (
-    <Card title="Negotiation room" desc="Counteroffers, reasons and approvals are all recorded for audit.">
-      <ol className="space-y-3">
-        {thread.map((m, i) => (
-          <li
-            key={i}
-            className={`rounded-lg border border-border p-4 text-sm ${m.from === "me" ? "bg-muted/50" : "bg-card"}`}
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold">{m.from === "me" ? "You" : "Buyer — event owner"}</span>
-              {m.amount != null && <Pill tone="good">{cr(m.amount)}</Pill>}
-              <span className="text-xs text-muted-foreground">{fmtDate(m.at)}</span>
-            </div>
-            <p className="mt-1.5 text-muted-foreground">{m.text}</p>
-          </li>
-        ))}
-      </ol>
-
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <label className="text-sm">
-          <span className="mb-1 block text-xs uppercase tracking-wide text-muted-foreground">Counteroffer (INR)</span>
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(Number(e.target.value))}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="text-sm sm:col-span-2">
-          <span className="mb-1 block text-xs uppercase tracking-wide text-muted-foreground">Reason / conditions</span>
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Freight basis, payment terms, validity…"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          />
-        </label>
-      </div>
-      <button
-        disabled={disabled}
-        onClick={() => {
-          setThread((t) => [...t, { from: "me", text: note || "Counteroffer submitted.", amount, at: Date.now() }]);
-          setNote("");
-          onSubmit({ at: Date.now(), label: "Counteroffer sent", amount });
-        }}
-        className="mt-4 rounded-full bg-[color:var(--auction)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
-      >
-        Send counteroffer
-      </button>
+    <Card title="Negotiation room" desc="Counteroffers require a server-side negotiation endpoint and approval workflow.">
+      <p className="text-sm text-muted-foreground">
+        Negotiation is not enabled for this release because the API does not expose a counteroffer endpoint. No local
+        message or bid will be recorded as a substitute.
+      </p>
+      {disabled && <p className="mt-3 text-sm text-muted-foreground">Complete the event gates before using negotiation.</p>}
     </Card>
   );
 }
