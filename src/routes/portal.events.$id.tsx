@@ -68,7 +68,7 @@ export const Route = createFileRoute("/portal/events/$id")({
 
     // A public auction URL is not an invitation. Only a buyer with an
     // authenticated participation record may enter this workspace.
-    if (!hasOwnBid && !hasOwnEmd && !hasOwnParticipation) throw notFound();
+    if (!hasOwnBid && !hasOwnEmd && !hasOwnParticipation && !event.isRegistered) throw notFound();
 
     const rfxPackages = Array.isArray(rfxResponse?.data?.data)
       ? rfxResponse.data.data
@@ -143,10 +143,16 @@ function BidderRoom() {
   const { event, ownParticipantId, ownBids, hasOwnEmd, rfxPackage } = Route.useLoaderData();
   useTick(1000);
 
-  const me = event.participants.find((participant) => String(participant.id) === String(ownParticipantId));
-  const [accepted, setAccepted] = useState(me?.accepted ?? false);
-  const [terms, setTerms] = useState(me?.termsAccepted ?? false);
-  const [emd, setEmd] = useState(!event.emdRequired || hasOwnEmd || me?.emd === "confirmed");
+  const me = event.participants.find((participant) => String(participant.id) === String(ownParticipantId)) ?? {
+    qualification: "qualified",
+  };
+  const [terms, setTerms] = useState(Boolean((event as any).myTermsAccepted ?? me?.termsAccepted));
+  const [emd, setEmd] = useState(
+    !event.emdRequired ||
+      hasOwnEmd ||
+      (event as any).myEmdStatus === "locked" ||
+      me?.emd === "confirmed",
+  );
   const [log, setLog] = useState<Submission[]>(
     ownBids.map((row: any) => ({
       at: Date.parse(row.created_at ?? row.at ?? "") || Date.now(),
@@ -157,7 +163,7 @@ function BidderRoom() {
   const [tab, setTab] = useState<"bid" | "lots" | "terms" | "negotiation" | "activity">("bid");
 
   const push = (s: Submission) => setLog((l) => [s, ...l]);
-  const gateOk = accepted && terms && emd && me?.qualification !== "blocked";
+  const gateOk = terms && emd && me?.qualification !== "blocked";
   const closed = event.endAt <= Date.now() || !["live", "paused", "published", "invited"].includes(event.state);
   const submit = async (submission: Submission) => {
     try {
@@ -221,19 +227,8 @@ function BidderRoom() {
 
       {!gateOk && (
         <div className="mt-5">
-          <Card title="Before you can submit" desc="All three gates are enforced on every format.">
+          <Card title="Before you can submit" desc="The server verifies terms, EMD, account status and auction eligibility on every submission.">
             <div className="space-y-3">
-              <Gate
-                ok={accepted}
-                label="Accept the invitation"
-                action="Accept invitation"
-                onDo={() => {
-                  void api.acceptAuctionTerms(event.id).then(() => {
-                    setAccepted(true);
-                    push({ at: Date.now(), label: "Invitation accepted" });
-                  }).catch((error) => toast.error(error instanceof Error ? error.message : "Unable to accept invitation"));
-                }}
-              />
               <Gate
                 ok={terms}
                 label="Accept terms & conditions"

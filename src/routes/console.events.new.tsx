@@ -471,8 +471,9 @@ function CreateEventWizard() {
           }),
         );
       }
-      // Keep the seller's first submission as a draft. Publishing is a
-      // separate approval-gated lifecycle action.
+      // Creation starts as a draft; submit only after all configuration,
+      // material-list, document, and invitation work has succeeded.
+      await api.submitAuction(code);
       setPublished(true);
       navigate({ to: "/console/events" });
     } catch (error) {
@@ -572,22 +573,15 @@ function CreateEventWizard() {
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               {(
-                [
-                  "english",
-                  "sealed",
-                  "dutch",
-                  "japanese",
-                  "bafo",
-                  "rfq",
-                  "rfi",
-                  "rfp",
-                  "hybrid",
-                ] as EventFormat[]
+                ["english", "rfq"] as EventFormat[]
               ).map((f) => (
                 <button
                   key={f}
                   type="button"
-                  onClick={() => setFormat(f)}
+                  onClick={() => {
+                    setFormat(f);
+                    if (f === "rfq") setEnableRfx(true);
+                  }}
                   className={`rounded-xl border p-3 text-left transition-all ${
                     format === f
                       ? "border-[color:var(--navy)] bg-[color:var(--navy)]/10 font-bold text-[color:var(--navy)]"
@@ -597,8 +591,6 @@ function CreateEventWizard() {
                   <div className="font-bold capitalize text-sm">{FORMAT_LABEL[f]}</div>
                   <div className="text-[11px] text-muted-foreground mt-1">
                     {f === "english" && "Open dynamic bidding room"}
-                    {f === "sealed" && "One-time confidential sealed bid"}
-                    {f === "japanese" && "Interval clock with mandatory accept"}
                     {f === "rfq" && "Technical & commercial quote packet"}
                   </div>
                 </button>

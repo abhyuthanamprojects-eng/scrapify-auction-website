@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Clock, Users, MapPin, ArrowDownLeft, Heart, FileText, CalendarClock } from "lucide-react";
 import type { Lot } from "@/lib/auction-data";
 import { formatINR, timeLeft } from "@/lib/auction-data";
@@ -9,7 +10,12 @@ import { useInterested } from "@/hooks/use-registration";
 
 export function LotCard({ lot, onDetails }: { lot: Lot; onDetails?: (lot: Lot) => void }) {
   useTick(1000);
-  const t = timeLeft(lot.endsAt);
+  // The countdown depends on the current clock, which differs between the
+  // server render and the first browser render. Keep the initial markup
+  // deterministic so SSR hydration cannot replace the entire card.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+  const t = hydrated ? timeLeft(lot.endsAt) : { label: "—", urgent: false };
   const isLive = lot.status === "live";
   const isReverse = lot.auctionType === "reverse";
   const interestedIds = useInterested();

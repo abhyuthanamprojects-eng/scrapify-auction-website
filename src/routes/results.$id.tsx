@@ -78,7 +78,11 @@ function ResultPage() {
 
   const participant = authoritativeResult?.participant;
   const myBid = participant?.amount == null ? null : Number(participant.amount);
-  const outcome: "won" | "lost" = participant?.rank === 1 ? "won" : "lost";
+  const outcome: "won" | "lost" | "reserve" = participant?.reserve_not_met
+    ? "reserve"
+    : participant?.rank === 1
+      ? "won"
+      : "lost";
   const emdHeld = Number(authoritativeResult?.emd?.amount ?? 0);
   const sum = {
     h1: myBid ?? Number(authoritativeResult?.final_value ?? 0),
