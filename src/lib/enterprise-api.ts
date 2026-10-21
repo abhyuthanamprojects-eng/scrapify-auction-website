@@ -76,6 +76,9 @@ export function toAuctionEvent(row: Record<string, any>): AuctionEvent {
     rankVisibility: 'price_visible',
     emdRequired: num(row.emd_amount_inr) > 0,
     emdAmount: num(row.emd_amount_inr),
+    isRegistered: row.is_registered === true,
+    myTermsAccepted: Boolean(row.terms_accepted),
+    myEmdStatus: row.emd_status ? String(row.emd_status).toLowerCase() : null,
     lots: (row.sub_lots ?? []).map((lot: Record<string, any>, index: number) => ({
       no: String(lot.code ?? lot.id ?? index + 1),
       description: String(lot.name ?? ''),

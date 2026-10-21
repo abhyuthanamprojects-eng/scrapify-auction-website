@@ -32,7 +32,17 @@ export const Route = createFileRoute("/portal/")({
 const portalRoute = getRouteApi("/portal");
 
 /** The signed-in bidder is represented by the first participant of each event. */
-export const myPart = (e: AuctionEvent) => e.participants[0];
+export const myPart = (e: AuctionEvent) => {
+  const participant = e.participants?.[0] ?? {};
+  return {
+    ...participant,
+    id: participant.id ?? e.id,
+    accepted: participant.accepted ?? Boolean(e.isRegistered),
+    termsAccepted: participant.termsAccepted ?? Boolean(e.myTermsAccepted),
+    emd: participant.emd ?? (e.myEmdStatus === "locked" ? "confirmed" : e.emdRequired ? "pending" : "not_required"),
+    qualification: participant.qualification ?? "qualified",
+  };
+};
 
 const CTA: Record<string, string> = {
   english: "Enter live room",
@@ -71,7 +81,7 @@ function PortalHomeContent() {
   const [tab, setTab] = useState<"all" | "action" | "live" | "closed">("all");
 
   const events = Route.useLoaderData();
-  const mine = events.filter((e) => e.state !== "draft" && myPart(e));
+  const mine = events.filter((e) => e.state !== "draft" && (e.participants?.length > 0 || e.isRegistered));
   const rows = mine.filter((e) => {
     if (tab === "live") return e.state === "live" || e.state === "paused";
     if (tab === "closed")

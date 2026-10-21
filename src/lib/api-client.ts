@@ -455,6 +455,7 @@ class ScrapifyApiClient {
   async getPlatformConfig() {
     return this.request<{
       vendor_registration_fee: number;
+      web_registration_fee_required?: boolean;
       currency: string;
       auction_edit_lock_hours: number;
     }>("/platform-config");
@@ -510,6 +511,12 @@ class ScrapifyApiClient {
     return this.request<any>(`/auctions/${code}/configuration`, {
       method: "PATCH",
       body: JSON.stringify(data),
+    });
+  }
+
+  async submitAuction(code: string) {
+    return this.request<any>(`/auctions/${code}/submit`, {
+      method: "POST",
     });
   }
 
@@ -651,17 +658,6 @@ class ScrapifyApiClient {
     return this.request<ApiResponse<any>>(`/auctions/${code}/rfx/${packageId}/submit`, {
       method: "POST",
       body: JSON.stringify({ answers }),
-    });
-  }
-
-  async getOrders() {
-    return this.request<any>("/orders");
-  }
-
-  async payOrder(code: string, data: { method: string; reference?: string }) {
-    return this.request<any>(`/orders/${encodeURIComponent(code)}/pay`, {
-      method: "POST",
-      body: JSON.stringify(data),
     });
   }
 

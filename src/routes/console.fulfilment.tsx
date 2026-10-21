@@ -54,6 +54,9 @@ function Fulfilment() {
         ? "scheduled"
         : "order") as (typeof STAGES)[number],
     value: Number(row.total_amount_inr ?? row.winning_amount_inr ?? 0),
+    title: String(row.event_title ?? row.auction_title ?? row.auction_code ?? row.auction_id ?? "—"),
+    nextAction: String(row.next_action ?? "Review fulfilment status"),
+    dueAt: row.due_at ?? row.pickup_at ?? null,
   }));
   return (
     <>
@@ -68,7 +71,7 @@ function Fulfilment() {
           return (
             <Card
               key={f.id}
-              title={`${f.id} · ${e?.title ?? f.eventId}`}
+              title={`${f.id} · ${f.title}`}
               desc={`${f.party} · value ${cr(f.value)}`}
               actions={
                 <Pill tone={f.stage === "closed" ? "good" : "warn"}>{STAGE_LABEL[f.stage]}</Pill>
