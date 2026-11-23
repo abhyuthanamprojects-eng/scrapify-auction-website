@@ -41,11 +41,14 @@ function cacheUser(user: AppUser | null) {
 }
 
 export function useAuth(): AuthState {
-  const [user, setUser] = useState<AppUser | null>(() => readCachedUser());
+  // Start signed-out on both server and client so hydration matches; the
+  // cached identity is applied right after mount, before /auth/me resolves.
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
+    if (api.getToken()) setUser(readCachedUser());
     const load = async () => {
       if (!api.getToken()) {
         if (active) {
