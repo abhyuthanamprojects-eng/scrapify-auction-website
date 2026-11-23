@@ -44,7 +44,8 @@ function Approvals() {
       <div className="space-y-4">
         {queue.map((e) => {
           const state = decided[e.id];
-          const variance = e.value ? ((e.value - e.baseline) / e.baseline) * 100 : 0;
+          const variance =
+            e.value && e.baseline ? ((e.value - e.baseline) / e.baseline) * 100 : 0;
           return (
             <Card
               key={e.id}

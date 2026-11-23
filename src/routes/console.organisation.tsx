@@ -21,7 +21,11 @@ export const Route = createFileRoute("/console/organisation")({
       },
     ],
   }),
-  loader: () => api.getAdminOrganisationUsers({ per_page: "100" }),
+  // Organisation users live behind /admin/* (admin tokens only); website tokens get 403.
+  loader: () =>
+    api
+      .getAdminOrganisationUsers({ per_page: "100" })
+      .catch(() => ({ data: [], restricted: true })),
   component: OrganisationPage,
 });
 
@@ -99,7 +103,13 @@ function OrganisationPage() {
               onClick={() => setAddCatOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"
             >
-              <Plus className="h-4 w-4" /> Add Category Schema
+              <Plus className="h-4 w-4" />
+      {response?.restricted && (
+        <div className="mb-4 rounded-lg border border-border bg-muted p-4 text-sm text-muted-foreground">
+          User and role management is handled by your Scrapify account administrator. Changes made
+          here are local previews only.
+        </div>
+      )} Add Category Schema
             </button>
             <button
               onClick={() => setAddUserOpen(true)}

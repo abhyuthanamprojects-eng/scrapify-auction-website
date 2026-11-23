@@ -52,7 +52,26 @@ export type Vendor = any;
 export type OrgUser = any;
 export type Dispute = any;
 
-export const approvalTriggers: any[] = [];
+/** Reasons an event needs an approval decision, derived from its live data. */
+export const approvalTriggers = (event: AuctionEvent): string[] => {
+  if (!event) return [];
+  const triggers: string[] = [];
+  const value = Number(event.value) || 0;
+  const baseline = Number(event.baseline) || 0;
+  const accepted = Array.isArray(event.participants)
+    ? event.participants.filter((p: any) => p?.accepted).length
+    : 0;
+
+  if (event.state === "approval") triggers.push("Pending governance review");
+  if (value >= 10_000_000) triggers.push("Value above ₹1 Cr threshold");
+  if (baseline > 0 && value > 0) {
+    const variance = ((value - baseline) / baseline) * 100;
+    const adverse = event.direction === "reverse" ? variance > 0 : variance < 0;
+    if (adverse) triggers.push("Recommended price misses reserve/target");
+  }
+  if (accepted < 3) triggers.push("Low participation (fewer than 3 bidders)");
+  return triggers.length ? triggers : ["Standard approval policy"];
+};
 export const publishChecklist: any = (_event: AuctionEvent) => [];
 
 export const inr = (n: number) => "₹" + n.toLocaleString("en-IN");
@@ -75,4 +94,19 @@ export const fmtDate = (ms: number) => {
 
 export function getEvent(_id: string): AuctionEvent | undefined { return undefined; }
 export function getOrder(_id: string): Order | undefined { return undefined; }
-export function settlement(_input: AuctionEvent | number, _emdAmountArg = 0): any { return {}; }
+/** Award settlement: GST 18% + TCS 1% on award value, EMD adjusted against the total. */
+export function settlement(input: AuctionEvent | number, emdAmountArg = 0) {
+  const ev = typeof input === "number" ? null : (input as any);
+  const value = Math.max(0, Number(ev ? (ev.value ?? ev.baseline) : input) || 0);
+  const emdRaw = ev ? (ev.emdRequired === false ? 0 : ev.emdAmount) : emdAmountArg;
+  const gst = Math.round(value * 0.18);
+  const tcs = Math.round(value * 0.01);
+  const total = value + gst + tcs;
+  const emd = Math.min(Math.max(0, Number(emdRaw) || 0), total);
+  const balance = total - emd;
+  return {
+    value, gst, tcs, total, emd, balance,
+    // aliases used by the event workspace
+    winningAmount: value, grandTotal: total, emdAdjusted: emd, balancePayable: balance,
+  };
+}

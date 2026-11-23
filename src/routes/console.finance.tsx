@@ -22,30 +22,52 @@ export const Route = createFileRoute("/console/finance")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  loader: async () => Promise.all([api.getAdminFinanceSummary(), loadEvents()]),
+  // Customer-scoped endpoints only: /admin/* rejects public (website) tokens with 403.
+  loader: async () =>
+    Promise.all([
+      api.getEmd().catch(() => null),
+      api.getWalletTransactions({ per_page: "50" }).catch(() => null),
+      api.getOrders().catch(() => null),
+      loadEvents(),
+    ]),
   component: Finance,
 });
 
 function Finance() {
-  const [financeResponse, awarded] = Route.useLoaderData();
-  const summary = financeResponse?.summary ?? {};
-  const transactions = Array.isArray(financeResponse?.recent_transactions)
-    ? financeResponse.recent_transactions
-    : [];
-  const held = Number(summary.total_locked_emd_inr ?? 0);
-  const receivable = Number(summary.outstanding_balance_inr ?? 0);
-  const overdue = 0;
-  const forfeited = Number(summary.emd_forfeited_inr ?? 0);
+  const [emdResponse, txResponse, ordersResponse, awarded] = Route.useLoaderData();
+  const list = (r: any): any[] => (Array.isArray(r?.data) ? r.data : []);
+  const emdRows = list(emdResponse);
+  const transactions = list(txResponse);
+  const orders = list(ordersResponse);
+  const sumBy = (rows: any[], key: string) =>
+    rows.reduce((acc, r) => acc + Math.abs(Number(r?.[key] ?? 0)), 0);
+  const held = sumBy(
+    emdRows.filter((r) => ["locked", "held", "verified"].includes(String(r.status))),
+    "amount_inr",
+  );
+  const unpaid = orders.filter((o) => !["paid", "closed", "cancelled"].includes(String(o.status)));
+  const receivable = sumBy(unpaid, "balance_due_inr");
+  const now = Date.now();
+  const overdue = sumBy(
+    unpaid.filter((o) => o.payment_due_at && Date.parse(o.payment_due_at) < now),
+    "balance_due_inr",
+  );
+  const forfeited = sumBy(
+    emdRows.filter((r) => String(r.status) === "forfeited"),
+    "amount_inr",
+  );
   const invoices = transactions.filter((t: any) =>
     String(t.type ?? "")
       .toLowerCase()
       .includes("payment"),
   );
-  const emdLedger = transactions.filter((t: any) =>
-    String(t.type ?? "")
-      .toLowerCase()
-      .includes("emd"),
-  );
+  const emdLedger = emdRows.map((r: any) => ({
+    id: r.reference ?? r.id,
+    user: r.vendor_name,
+    note: r.auction_id,
+    amount_inr: r.amount_inr,
+    state: String(r.status ?? ""),
+  }));
 
   return (
     <>
@@ -55,10 +77,10 @@ function Finance() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label="EMD held" value={cr(held)} hint="Across live and published events" />
+        <Kpi label="EMD held" value={cr(held)} hint="Your locked deposits" />
         <Kpi label="Receivable" value={cr(receivable)} hint="Awaiting or part paid" />
-        <Kpi label="Overdue" value={cr(overdue)} hint="Escalated to recovery" />
-        <Kpi label="Forfeited YTD" value={cr(forfeited)} hint="Winner default cases" />
+        <Kpi label="Overdue" value={cr(overdue)} hint="Past payment due date" />
+        <Kpi label="Forfeited" value={cr(forfeited)} hint="Deposits forfeited" />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -105,7 +127,7 @@ function Finance() {
                           : "warn"
                     }
                   >
-                    recorded
+                    {r.state || "recorded"}
                   </Pill>
                 </td>
               </tr>

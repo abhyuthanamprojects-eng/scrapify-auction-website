@@ -21,7 +21,8 @@ export const Route = createFileRoute("/console/fulfilment")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  loader: () => api.getAdminFulfilments({ per_page: "100" }),
+  // Public token: /orders is scoped to the signed-in buyer; /admin/fulfilments would 403.
+  loader: () => api.getOrders().catch(() => ({ data: [] })),
   component: Fulfilment,
 });
 
@@ -42,21 +43,35 @@ const STAGE_LABEL: Record<(typeof STAGES)[number], string> = {
   closed: "Closed",
 };
 
+type FulfilmentRow = {
+  id: string;
+  eventId: string;
+  party: string;
+  stage: (typeof STAGES)[number];
+  value: number;
+  title: string;
+  nextAction: string;
+  dueAt: string | null;
+};
+
 function Fulfilment() {
   const response = Route.useLoaderData() as any;
-  const fulfilments = (Array.isArray(response?.data) ? response.data : []).map((row: any) => ({
+  const rows: any[] = Array.isArray(response?.data) ? response.data : [];
+  const fulfilments: FulfilmentRow[] = rows.map((row) => ({
     id: String(row.id ?? row.order_id ?? "ORDER"),
     eventId: String(row.auction_id ?? "—"),
     party: String(row.vendor_name ?? "—"),
-    stage: (row.status === "closed"
+    stage: (row.status === "closed" || row.status === "completed"
       ? "closed"
-      : row.pickup_status
-        ? "scheduled"
-        : "order") as (typeof STAGES)[number],
+      : row.status === "delivered" || row.pickup?.status === "completed"
+        ? "delivered"
+        : row.pickup_status || row.pickup
+          ? "scheduled"
+          : "order") as (typeof STAGES)[number],
     value: Number(row.total_amount_inr ?? row.winning_amount_inr ?? 0),
-    title: String(row.event_title ?? row.auction_title ?? row.auction_code ?? row.auction_id ?? "—"),
+    title: String(row.event_title ?? row.auction_title ?? row.title ?? row.auction_code ?? row.auction_id ?? "—"),
     nextAction: String(row.next_action ?? "Review fulfilment status"),
-    dueAt: row.due_at ?? row.pickup_at ?? null,
+    dueAt: row.due_at ?? row.pickup_at ?? row.pickup?.window_start ?? row.payment_due_at ?? null,
   }));
   return (
     <>
@@ -100,7 +115,7 @@ function Fulfilment() {
                 </div>
                 <div>
                   <p className="text-xs uppercase text-muted-foreground">Due</p>
-                  <p className="mt-1 text-sm font-semibold">{fmtDate(f.dueAt)}</p>
+                  <p className="mt-1 text-sm font-semibold">{f.dueAt ? fmtDate(Date.parse(String(f.dueAt))) : "—"}</p>
                 </div>
                 <div className="flex flex-wrap items-end gap-2">
                   <button className="rounded-full border border-border px-3.5 py-2 text-xs font-semibold hover:bg-muted">

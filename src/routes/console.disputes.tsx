@@ -34,19 +34,44 @@ export const Route = createFileRoute("/console/disputes")({
   component: DisputesPage,
 });
 
+// API: category "Quantity Variance" | "Quality Mismatch" | "Delivery Delay" | "Payment Default" | "Compliance"
+function disputeType(raw: unknown): string {
+  const v = String(raw ?? "").toLowerCase();
+  if (v.includes("quantity")) return "quantity";
+  if (v.includes("quality")) return "quality";
+  if (v.includes("payment")) return "payment";
+  if (v.includes("delivery") || v.includes("sla")) return "sla";
+  return "process";
+}
+
+// API: Low | Medium | High | Critical
+function disputeSeverity(raw: unknown): string {
+  const v = String(raw ?? "medium").toLowerCase();
+  return v === "critical" ? "high" : ["low", "medium", "high"].includes(v) ? v : "medium";
+}
+
+// API: new | evidence_pending | under_review | decision_pending | resolved | appealed | closed
+function disputeStatus(raw: unknown): string {
+  const v = String(raw ?? "new").toLowerCase();
+  if (v === "resolved" || v === "closed") return "resolved";
+  if (v === "under_review" || v === "decision_pending" || v === "appealed") return "under_review";
+  return "open";
+}
+
 function DisputesPage() {
   const [filter, setFilter] = useState<"all" | "open" | "under_review" | "resolved">("all");
   const response = Route.useLoaderData() as any;
   const [disputesList, setDisputesList] = useState<Dispute[]>(() =>
     (Array.isArray(response?.data) ? response.data : []).map((d: any) => ({
       id: String(d.code ?? d.id),
-      eventId: String(d.auction_code ?? d.auction_id ?? "—"),
-      party: String(d.vendor_name ?? d.party ?? "—"),
-      type: d.type ?? "process",
-      severity: d.severity ?? "medium",
-      status: d.status ?? "open",
+      eventId: String(d.auction?.code ?? d.auction_code ?? d.auction_id ?? "—"),
+      eventTitle: d.auction?.title ?? d.auction_title ?? null,
+      party: String(d.vendor?.company_name ?? d.vendor_name ?? d.party ?? "—"),
+      type: disputeType(d.type ?? d.category),
+      severity: disputeSeverity(d.severity),
+      status: disputeStatus(d.status),
       opened: Date.parse(d.created_at ?? "") || Date.now(),
-      summary: String(d.summary ?? d.description ?? ""),
+      summary: String(d.summary ?? d.description ?? d.title ?? ""),
     })),
   );
   const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null);
@@ -154,12 +179,11 @@ function DisputesPage() {
 
       <div className="mt-4 space-y-4">
         {rows.map((d) => {
-          const e = null;
           return (
             <Card
               key={d.id}
               title={`${d.id} · ${d.type.toUpperCase()} Dispute`}
-              desc={`${d.party} · Event: ${e?.title ?? d.eventId} · Opened on ${fmtDate(d.opened)}`}
+              desc={`${d.party} · Event: ${d.eventTitle ? `${d.eventTitle} (${d.eventId})` : d.eventId} · Opened on ${fmtDate(d.opened)}`}
               actions={
                 <div className="flex gap-2">
                   <Pill
